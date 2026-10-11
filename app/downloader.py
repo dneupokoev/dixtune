@@ -80,7 +80,8 @@ def download_channel(
     cmd.extend(["--break-per-input"])
 
     # Обход n challenge и signature: web_safari client + удалённые компоненты + PO Token
-    cmd.extend(["--extractor-args", f"youtube:player_client=web_safari;youtubepot-bgutilhttp:base_url={DIXTUNE_POT_PROVIDER_URL}"])
+    cmd.extend(["--extractor-args", "youtube:player_client=web_safari"])
+    cmd.extend(["--extractor-args", f"youtubepot-bgutilhttp:base_url={DIXTUNE_POT_PROVIDER_URL}"])
     cmd.extend(["--extractor-retries", "10"])
     cmd.extend(["--retries", "10"])
     cmd.extend(["--remote-components", "ejs:github"])
@@ -112,7 +113,8 @@ def download_channel(
                 if any(keyword in line for keyword in [
                     "[download]", "Destination:", "ERROR", "WARNING", "100%",
                     "Downloading item", "upload date", "has already been recorded",
-                    "Skipping", "not in range"
+                    "Skipping", "not in range",
+                    "pot", "bgutil", "base_url", "PO Token", "Generating"
                 ]):
                     logger.info(f"{prefix}: {line}")
 
