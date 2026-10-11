@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 
 from app import models, schemas, crud
 from app.database import engine, Base, get_db
-from app.config import MUSIC_DIR, DATA_DIR, LOG_PATH, DIXTUNE_USERNAME, DIXTUNE_PASSWORD
+from app.config import MUSIC_DIR, DATA_DIR, LOG_PATH, DIXTUNE_USERNAME, DIXTUNE_PASSWORD, DIXTUNE_ROOT_PATH
 from app.scheduler import start_scheduler, stop_scheduler, sync_all_channels
 from app.utils import ensure_directory
 from app.ui import router as ui_router
@@ -76,7 +76,8 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="DixTune",
     description="Автоматический загрузчик аудио с YouTube-каналов.",
-    lifespan=lifespan
+    lifespan=lifespan,
+    root_path=DIXTUNE_ROOT_PATH
 )
 
 @app.middleware("http")

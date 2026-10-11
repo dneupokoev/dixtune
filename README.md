@@ -208,6 +208,7 @@ dixtune/
 | `TZ` | Часовой пояс | `Europe/Moscow` |
 | `DIXTUNE_USERNAME` | Логин для Basic Auth | `admin` |
 | `DIXTUNE_PASSWORD` | Пароль для Basic Auth | `admin123` |
+| `DIXTUNE_ROOT_PATH` | Путь, если приложение за прокси с подпутём | `` (пусто) |
 
 ## Аутентификация
 

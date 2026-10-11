@@ -25,6 +25,9 @@ SYNC_INTERVAL_HOURS = int(os.getenv("SYNC_INTERVAL_HOURS", "6"))
 DIXTUNE_USERNAME = os.getenv("DIXTUNE_USERNAME", "admin")
 DIXTUNE_PASSWORD = os.getenv("DIXTUNE_PASSWORD", "admin123")
 
+# Корневой путь для работы за прокси с подпутём
+DIXTUNE_ROOT_PATH = os.getenv("DIXTUNE_ROOT_PATH", "")
+
 # Создаём папки при старте
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
