@@ -64,6 +64,9 @@ def download_channel(
     # Ленивая обработка плейлиста: не получать весь список сразу
     cmd.extend(["--lazy-playlist"])
 
+    # Ограничение количества проверяемых видео
+    cmd.extend(["--playlist-end", "10"])
+
     # Фильтр: исключить трансляции (is_live) и Shorts (duration < 60)
     cmd.extend(["--match-filter", "!is_live & duration > 60"])
 
@@ -84,6 +87,8 @@ def download_channel(
     cmd.extend(["--parse-metadata", "YouTube:%(album)s"])
     cmd.extend(["--parse-metadata", "playlist_index:%(track_number)s"])
     cmd.extend(["--parse-metadata", "%(upload_date>%Y%m%d)s %(title)s:%(title)s"])
+    cmd.extend(["--parse-metadata", "%(upload_date>%Y-%m)s:%(date)s"])
+    cmd.extend(["--parse-metadata", "uploader:%(artist)s"])
 
     # Обход n challenge и signature: web_safari client + удалённые компоненты + PO Token
     cmd.extend(["--extractor-args", "youtube:player_client=mweb"])
@@ -118,9 +123,9 @@ def download_channel(
                     stderr_lines.append(line)
                 if any(keyword in line for keyword in [
                     "[download]", "Destination:", "ERROR", "WARNING", "100%",
-                    "Downloading item", "upload date", "has already been recorded",
+                    "upload date", "has already been recorded",
                     "Skipping", "not in range",
-                    "pot", "bgutil", "base_url", "PO Token", "Generating"
+                    "Downloading webpage", "[download] Destination"
                 ]):
                     logger.info(f"{prefix}: {line}")
 

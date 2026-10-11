@@ -11,7 +11,7 @@ DixTune — автоматический загрузчик аудио с YouTub
 - Скачивание аудио с YouTube-каналов (музыка, подкасты, лекции).
 - Вырезание рекламных вставок через SponsorBlock.
 - Веб-интерфейс для управления каналами.
-- Автоматическая синхронизация (APScheduler, каждые 6 часов).
+- Автоматическая синхронизация (APScheduler, случайный интервал).
 - Ограничение по дате (не качать старое).
 - Опциональная транслитерация имён папок.
 - Ротация логов.
@@ -20,6 +20,7 @@ DixTune — автоматический загрузчик аудио с YouTub
 - **Обход блокировок YouTube через ByeDPI** (опционально, для серверов в России).
 - **Поддержка Deno** для решения n challenge (автоматически устанавливается в Docker).
 - **Поддержка cookies** для авторизации на YouTube (опционально).
+- **PO Token Provider** (bgutil) для обхода защиты YouTube.
 
 ## Быстрый старт (Prod)
 
@@ -60,8 +61,9 @@ DIXTUNE_MUSIC_DIR=/media/music/dixtune
 # Путь к папке с данными (БД, логи, архив yt-dlp)
 DIXTUNE_DATA_DIR=/opt/dix/dixtune/data
 
-# Интервал синхронизации в часах
-SYNC_INTERVAL_HOURS=6
+# Интервал синхронизации в часах (минимальный и максимальный)
+SYNC_INTERVAL_HOURS_MIN=20
+SYNC_INTERVAL_HOURS_MAX=28
 
 # Часовой пояс
 TZ=Europe/Moscow
@@ -105,17 +107,41 @@ services:
     environment:
       - DIXTUNE_DATA_DIR=/data
       - DIXTUNE_MUSIC_DIR=/media/music/dixtune
-      - SYNC_INTERVAL_HOURS=${SYNC_INTERVAL_HOURS}
+      - SYNC_INTERVAL_HOURS_MIN=${SYNC_INTERVAL_HOURS_MIN}
+      - SYNC_INTERVAL_HOURS_MAX=${SYNC_INTERVAL_HOURS_MAX}
       - TZ=${TZ}
       - DIXTUNE_USERNAME=${DIXTUNE_USERNAME}
       - DIXTUNE_PASSWORD=${DIXTUNE_PASSWORD}
       - DIXTUNE_ROOT_PATH=${DIXTUNE_ROOT_PATH}
       - DIXTUNE_PROXY=${DIXTUNE_PROXY}
+      - DIXTUNE_COOKIES=${DIXTUNE_COOKIES}
+      - DIXTUNE_POT_PROVIDER_URL=http://bgutil-provider:4416
+    depends_on:
+      - byedpi
+      - bgutil-provider
     logging:
       driver: json-file
       options:
         max-size: "10m"
         max-file: "3"
+
+  bgutil-provider:
+    image: brainicism/bgutil-ytdlp-pot-provider:latest
+    container_name: bgutil-provider
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:4416:4416"
+
+  byedpi:
+    image: andromedi4/byedpi-orchestrator:latest
+    container_name: byedpi
+    restart: unless-stopped
+    volumes:
+      - ./byedpi-data:/app
+      - ./byedpi-config:/opt/orchestrator/config
+    ports:
+      - "1080:1080"   # SOCKS5 прокси
+      - "8088:8088"   # Веб-дашборд ByeDPI
 ```
 
 ### Шаг 4: Запустите
@@ -159,6 +185,7 @@ services:
       - ./byedpi-config:/opt/orchestrator/config
     ports:
       - "1080:1080"
+      - "8088:8088"
 ```
 
 **2. В `.env` укажите прокси:**
@@ -194,6 +221,22 @@ sudo docker compose logs -f dixtune
 Для решения n challenge (защита YouTube от ботов) DixTune использует **Deno**. Deno автоматически устанавливается в Docker-образе, поэтому дополнительных действий не требуется.
 
 Также `yt-dlp` использует флаг `--remote-components ejs:github` для загрузки скриптов-решателей с GitHub. Это происходит автоматически при первом запуске (скрипты кешируются).
+
+### PO Token Provider (bgutil)
+
+Для обхода защиты YouTube (PO Token) DixTune использует **bgutil-provider**. Это отдельный сервис, который автоматически генерирует PO Token для `yt-dlp`.
+
+Сервис добавляется в `docker-compose.yml` и работает в фоне. Дополнительных действий не требуется — `yt-dlp` сам обращается к нему.
+
+### Cookies (опционально)
+
+Если YouTube блокирует доступ по IP (даже с ByeDPI и PO Token), можно использовать cookies браузера:
+
+1. Установите расширение «Get cookies.txt LOCALLY» в браузере.
+2. Зайдите на YouTube, авторизуйтесь.
+3. Экспортируйте cookies и сохраните файл как `cookies.txt`.
+4. Загрузите файл через веб-интерфейс: `https://klml.ru/dixtune/ui/settings/cookies`.
+5. Cookies будут сохранены в `/data/cookies.txt` и использованы при следующей синхронизации.
 
 ### Обновление
 
@@ -234,6 +277,8 @@ docker run -d \
   -e DIXTUNE_PASSWORD=admin123 \
   -e DIXTUNE_ROOT_PATH= \
   -e DIXTUNE_PROXY= \
+  -e DIXTUNE_COOKIES= \
+  -e DIXTUNE_POT_PROVIDER_URL=http://bgutil-provider:4416 \
   ghcr.io/dneupokoev/dixtune:latest
 ```
 
@@ -319,7 +364,8 @@ dixtune/
 | :--- | :--- | :--- |
 | `DIXTUNE_DATA_DIR` | Путь к данным (БД, логи) | `./data` |
 | `DIXTUNE_MUSIC_DIR` | Путь к музыке | `/media/music/dixtune` |
-| `SYNC_INTERVAL_HOURS` | Интервал синхронизации (часов) | `6` |
+| `SYNC_INTERVAL_HOURS_MIN` | Минимальный интервал синхронизации (часов) | `20` |
+| `SYNC_INTERVAL_HOURS_MAX` | Максимальный интервал синхронизации (часов) | `28` |
 | `TZ` | Часовой пояс | `Europe/Moscow` |
 | `DIXTUNE_USERNAME` | Логин для Basic Auth | `admin` |
 | `DIXTUNE_PASSWORD` | Пароль для Basic Auth | `admin123` |

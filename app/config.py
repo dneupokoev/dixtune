@@ -18,8 +18,9 @@ ARCHIVE_FILE = DATA_DIR / ".yt-dlp-archive.txt"
 DB_PATH = DATA_DIR / "channels.db"
 LOG_PATH = DATA_DIR / "logs" / "sync.log"
 
-# Интервал синхронизации
-SYNC_INTERVAL_HOURS = int(os.getenv("SYNC_INTERVAL_HOURS", "6"))
+# Интервал синхронизации (минимальный и максимальный в часах)
+SYNC_INTERVAL_HOURS_MIN = int(os.getenv("SYNC_INTERVAL_HOURS_MIN", "20"))
+SYNC_INTERVAL_HOURS_MAX = int(os.getenv("SYNC_INTERVAL_HOURS_MAX", "28"))
 
 # Аутентификация
 DIXTUNE_USERNAME = os.getenv("DIXTUNE_USERNAME", "admin")

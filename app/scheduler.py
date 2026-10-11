@@ -5,10 +5,13 @@ dv_file_version = '261010.01'
 
 import logging
 import os
-from apscheduler.schedulers.background import BackgroundScheduler
-from apscheduler.triggers.interval import IntervalTrigger
+import random
+from datetime import datetime, timedelta
 
-from app.config import SYNC_INTERVAL_HOURS
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.date import DateTrigger
+
+from app.config import SYNC_INTERVAL_HOURS_MIN, SYNC_INTERVAL_HOURS_MAX
 from app.database import SessionLocal
 from app.crud import get_enabled_channels, update_last_checked
 from app.downloader import download_channel
@@ -16,6 +19,20 @@ from app.downloader import download_channel
 logger = logging.getLogger("DixTune")
 timezone = os.getenv("TZ", "Europe/Moscow")
 scheduler = BackgroundScheduler(timezone=timezone)
+
+
+def schedule_next_sync() -> None:
+    """Запланировать следующую синхронизацию со случайным интервалом."""
+    random_hours = random.uniform(SYNC_INTERVAL_HOURS_MIN, SYNC_INTERVAL_HOURS_MAX)
+    next_run = datetime.now() + timedelta(hours=random_hours)
+    scheduler.add_job(
+        sync_all_channels,
+        trigger=DateTrigger(run_date=next_run),
+        id="sync_channels",
+        name="Sync YouTube Channels",
+        replace_existing=True
+    )
+    logger.info(f"Следующая синхронизация запланирована на {next_run.strftime('%Y-%m-%d %H:%M:%S')} (через {random_hours:.2f} ч.)")
 
 
 def sync_all_channels() -> None:
@@ -38,19 +55,14 @@ def sync_all_channels() -> None:
         logger.error(f"Ошибка при синхронизации: {str(e)}")
     finally:
         db.close()
+        schedule_next_sync()
 
 
 def start_scheduler() -> None:
     """Запустить планировщик."""
-    scheduler.add_job(
-        sync_all_channels,
-        trigger=IntervalTrigger(hours=SYNC_INTERVAL_HOURS),
-        id="sync_channels",
-        name="Sync YouTube Channels",
-        replace_existing=True
-    )
     scheduler.start()
-    logger.info(f"Планировщик запущен, интервал: {SYNC_INTERVAL_HOURS} часов")
+    schedule_next_sync()
+    logger.info(f"Планировщик запущен, интервал: {SYNC_INTERVAL_HOURS_MIN}-{SYNC_INTERVAL_HOURS_MAX} часов")
 
 
 def stop_scheduler() -> None:
