@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block title %}{{ 'Редактировать канал' if channel else 'Добавить канал' }} - DixTune{% endblock %}
+
+{% block content %}
+<div class="form-container">
+    <h2>{{ 'Редактировать канал' if channel else 'Добавить новый канал' }}</h2>
+    <form action="{{ action }}" method="post">
+        <div class="form-group">
+            <label for="url">URL канала *</label>
+            <input type="url" id="url" name="url" value="{{ channel.url if channel else '' }}" required placeholder="https://www.youtube.com/@channel_name">
+        </div>
+        <div class="form-group">
+            <label for="name">Имя канала</label>
+            <input type="text" id="name" name="name" value="{{ channel.name if channel else '' }}" placeholder="Название канала">
+        </div>
+        <div class="form-group">
+            <label for="min_date">Минимальная дата (YYYY-MM-DD)</label>
+            <input type="date" id="min_date" name="min_date" value="{{ channel.min_date.strftime('%Y-%m-%d') if channel and channel.min_date else '' }}">
+        </div>
+        {% if not channel %}
+        <div class="form-group checkbox-group">
+            <label>
+                <input type="checkbox" name="transliterate" value="true">
+                Транслитерировать имя папки (латиницей)
+            </label>
+        </div>
+        {% endif %}
+        {% if channel %}
+        <div class="form-group checkbox-group">
+            <label>
+                <input type="checkbox" name="enabled" value="true" {% if channel.enabled %}checked{% endif %}>
+                Включён
+            </label>
+            <small>Если снять галочку, канал не будет участвовать в синхронизации.</small>
+        </div>
+        {% endif %}
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">
+                <span class="btn-icon">💾</span> {{ 'Сохранить' if channel else 'Добавить' }}
+            </button>
+            <a href="/ui/" class="btn btn-secondary">Отмена</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

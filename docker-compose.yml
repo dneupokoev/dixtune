@@ -1,0 +1,21 @@
+services:
+  dixtune:
+    image: ghcr.io/dneupokoev/dixtune:latest
+    restart: unless-stopped
+    ports:
+      - "8020:8000"
+    volumes:
+      - /media/music/dixtune:/media/music/dixtune
+      - ./data:/data
+    environment:
+      - DIXTUNE_DATA_DIR=/data
+      - DIXTUNE_MUSIC_DIR=/media/music/dixtune
+      - SYNC_INTERVAL_HOURS=6
+      - TZ=Europe/Moscow
+      - DIXTUNE_USERNAME=admin
+      - DIXTUNE_PASSWORD=admin123
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
