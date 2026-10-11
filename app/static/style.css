@@ -207,3 +207,91 @@ tr:hover {
     padding: 2rem;
     color: #7f8c8d;
 }
+
+@media (max-width: 768px) {
+    /* Шапка */
+    header {
+        flex-direction: column;
+        gap: 0.5rem;
+        padding: 1rem;
+    }
+    header nav a {
+        margin-left: 0;
+        margin-right: 1rem;
+    }
+
+    /* Статус-бар */
+    .status-bar {
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+    .status-item {
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    /* Кнопки действий */
+    .actions-bar {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    .actions-bar .btn {
+        width: 100%;
+        text-align: center;
+    }
+
+    /* Таблица — горизонтальная прокрутка */
+    table {
+        display: block;
+        overflow-x: auto;
+        white-space: nowrap;
+    }
+    th, td {
+        padding: 0.5rem;
+        font-size: 0.85rem;
+    }
+
+    /* Форма */
+    .form-container {
+        padding: 1rem;
+        margin: 0 0.5rem;
+    }
+    .form-actions {
+        flex-direction: column;
+    }
+    .form-actions .btn {
+        width: 100%;
+        text-align: center;
+    }
+
+    /* Кнопки-иконки в таблице */
+    .action-buttons {
+        flex-direction: row;
+        gap: 0.25rem;
+    }
+    .btn-icon-only {
+        width: 32px;
+        height: 32px;
+        font-size: 1rem;
+    }
+
+    /* main — уменьшить отступы */
+    main {
+        margin: 1rem auto;
+        padding: 0 0.5rem;
+    }
+}
+
+@media (max-width: 480px) {
+    header h1 {
+        font-size: 1.2rem;
+    }
+    .status-value {
+        font-size: 1rem;
+    }
+    th, td {
+        padding: 0.4rem;
+        font-size: 0.8rem;
+    }
+}

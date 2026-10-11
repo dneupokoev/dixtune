@@ -9,7 +9,7 @@ from pathlib import Path
 from datetime import date
 from typing import Optional
 
-from app.config import MUSIC_DIR, ARCHIVE_FILE, LOG_PATH
+from app.config import MUSIC_DIR, ARCHIVE_FILE, LOG_PATH, DIXTUNE_PROXY, DIXTUNE_COOKIES
 from app.utils import ensure_directory
 
 logger = logging.getLogger("DixTune")
@@ -43,6 +43,13 @@ def download_channel(
         # Преобразуем дату в формат YYYYMMDD для yt-dlp
         date_str = min_date.strftime("%Y%m%d")
         cmd.extend(["--dateafter", date_str])
+
+    # Добавляем настройки для обхода блокировок
+    if DIXTUNE_PROXY:
+        cmd.extend(["--proxy", DIXTUNE_PROXY])
+    if DIXTUNE_COOKIES:
+        cmd.extend(["--cookies", DIXTUNE_COOKIES])
+    cmd.extend(["--extractor-args", "youtube:player_client=tv,mweb"])
 
     try:
         result = subprocess.run(

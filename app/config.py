@@ -28,6 +28,10 @@ DIXTUNE_PASSWORD = os.getenv("DIXTUNE_PASSWORD", "admin123")
 # Корневой путь для работы за прокси с подпутём
 DIXTUNE_ROOT_PATH = os.getenv("DIXTUNE_ROOT_PATH", "")
 
+# Настройки для обхода блокировок YouTube
+DIXTUNE_PROXY = os.getenv("DIXTUNE_PROXY", "")
+DIXTUNE_COOKIES = os.getenv("DIXTUNE_COOKIES", "")
+
 # Создаём папки при старте
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)

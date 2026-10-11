@@ -16,8 +16,21 @@ services:
       - DIXTUNE_USERNAME=${DIXTUNE_USERNAME}
       - DIXTUNE_PASSWORD=${DIXTUNE_PASSWORD}
       - DIXTUNE_ROOT_PATH=${DIXTUNE_ROOT_PATH}
+      - DIXTUNE_PROXY=socks5://byedpi:1080  # <-- Указываем прокси
+    depends_on:
+      - byedpi
     logging:
       driver: json-file
       options:
         max-size: "10m"
         max-file: "3"
+
+  byedpi:
+    image: andromedi4/byedpi-orchestrator:latest
+    container_name: byedpi
+    restart: unless-stopped
+    volumes:
+      - ./byedpi-data:/app
+      - ./byedpi-config:/opt/orchestrator/config
+    ports:
+      - "1080:1080"  # SOCKS5 прокси (наружу не обязателен, но удобно для тестов)
