@@ -18,13 +18,22 @@ services:
       - DIXTUNE_ROOT_PATH=${DIXTUNE_ROOT_PATH}
       - DIXTUNE_PROXY=${DIXTUNE_PROXY}
       - DIXTUNE_COOKIES=${DIXTUNE_COOKIES}
+      - DIXTUNE_POT_PROVIDER_URL=http://bgutil-provider:4416
     depends_on:
       - byedpi
+      - bgutil-provider
     logging:
       driver: json-file
       options:
         max-size: "10m"
         max-file: "3"
+
+  bgutil-provider:
+    image: brainicism/bgutil-ytdlp-pot-provider:latest
+    container_name: bgutil-provider
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:4416:4416"
 
   byedpi:
     image: andromedi4/byedpi-orchestrator:latest

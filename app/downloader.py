@@ -9,7 +9,7 @@ from pathlib import Path
 from datetime import date
 from typing import Optional
 
-from app.config import MUSIC_DIR, ARCHIVE_FILE, DIXTUNE_PROXY, DIXTUNE_COOKIES
+from app.config import MUSIC_DIR, ARCHIVE_FILE, DIXTUNE_PROXY, DIXTUNE_COOKIES, DIXTUNE_POT_PROVIDER_URL
 from app.utils import ensure_directory
 from app.database import SessionLocal
 from app import crud
@@ -82,8 +82,8 @@ def download_channel(
     # Временный флаг для отладки логирования
     cmd.extend(["--verbose"])
 
-    # Обход n challenge и signature: только tv client + удалённые компоненты
-    cmd.extend(["--extractor-args", "youtube:player_client=tv"])
+    # Обход n challenge и signature: только tv client + удалённые компоненты + PO Token
+    cmd.extend(["--extractor-args", f"youtube:player_client=tv;youtubepot-bgutilhttp:base_url={DIXTUNE_POT_PROVIDER_URL}"])
     cmd.extend(["--extractor-retries", "10"])
     cmd.extend(["--retries", "10"])
     cmd.extend(["--remote-components", "ejs:github"])

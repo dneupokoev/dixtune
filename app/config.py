@@ -34,6 +34,9 @@ DIXTUNE_PROXY = os.getenv("DIXTUNE_PROXY", "")
 # Путь к файлу cookies для yt-dlp
 DIXTUNE_COOKIES = os.getenv("DIXTUNE_COOKIES", str(DATA_DIR / "cookies.txt"))
 
+# URL PO Token Provider (bgutil)
+DIXTUNE_POT_PROVIDER_URL = os.getenv("DIXTUNE_POT_PROVIDER_URL", "http://bgutil-provider:4416")
+
 # Создаём папки при старте
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
