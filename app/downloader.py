@@ -60,12 +60,12 @@ def download_channel(
     if min_date:
         date_str = min_date.strftime("%Y%m%d")
         cmd.extend(["--dateafter", date_str])
-        # Останавливаться, как только встретится видео старше min_date.
-        # Экономит время, если видео идут в порядке от новых к старым.
-        cmd.extend(["--break-on-reject"])
 
     # Ленивая обработка плейлиста: не получать весь список сразу
     cmd.extend(["--lazy-playlist"])
+
+    # Фильтр: исключить трансляции (is_live) и Shorts (duration < 60)
+    cmd.extend(["--match-filter", "!is_live & duration > 60"])
 
     # Обход блокировок: прокси (ByeDPI)
     if DIXTUNE_PROXY:
@@ -75,15 +75,17 @@ def download_channel(
     if DIXTUNE_COOKIES and Path(DIXTUNE_COOKIES).exists():
         cmd.extend(["--cookies", DIXTUNE_COOKIES])
 
-    # Оптимизация перебора: останавливаться на уже скачанных видео
-    cmd.extend(["--break-on-existing"])
-    cmd.extend(["--break-per-input"])
+    # Автоматическое заполнение тегов MP3 на основе метаданных YouTube
+    cmd.extend(["--embed-metadata"])
+    cmd.extend(["--parse-metadata", "uploader:%(album_artist)s"])
+    cmd.extend(["--parse-metadata", "playlist_title:%(album)s"])
+    cmd.extend(["--parse-metadata", "playlist_index:%(track_number)s"])
 
     # Обход n challenge и signature: web_safari client + удалённые компоненты + PO Token
     cmd.extend(["--extractor-args", "youtube:player_client=web_safari"])
     cmd.extend(["--extractor-args", f"youtubepot-bgutilhttp:base_url={DIXTUNE_POT_PROVIDER_URL}"])
-    cmd.extend(["--extractor-retries", "10"])
-    cmd.extend(["--retries", "10"])
+    cmd.extend(["--extractor-retries", "3"])
+    cmd.extend(["--retries", "3"])
     cmd.extend(["--remote-components", "ejs:github"])
 
     # Логируем команду перед запуском (без секретов)
