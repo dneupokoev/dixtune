@@ -49,8 +49,9 @@ def download_channel(
         cmd.extend(["--proxy", DIXTUNE_PROXY])
     if DIXTUNE_COOKIES:
         cmd.extend(["--cookies", DIXTUNE_COOKIES])
-    cmd.extend(["--extractor-args", "youtube:player_client=tv,mweb"])
+    cmd.extend(["--extractor-args", "youtube:player_client=tv"])
     cmd.extend(["--extractor-retries", "5"])
+    cmd.extend(["--remote-components", "ejs:github"])
 
     # Логируем команду перед запуском (без паролей)
     safe_cmd = [arg for arg in cmd if not any(secret in arg for secret in [DIXTUNE_PROXY, DIXTUNE_COOKIES] if secret)]
@@ -66,8 +67,11 @@ def download_channel(
 
         # Построчное чтение вывода в реальном времени
         for line in process.stdout:
-            logger.info(f"yt-dlp: {line.strip()}")
-        
+            line = line.strip()
+            # Логируем только важные строки: начало скачивания, прогресс, ошибки
+            if any(keyword in line for keyword in ["[download]", "Destination:", "ERROR", "WARNING", "100%"]):
+                logger.info(f"yt-dlp: {line}")
+
         stderr_output = process.stderr.read()
         process.wait()
 
