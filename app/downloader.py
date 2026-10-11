@@ -82,7 +82,7 @@ def download_channel(
     cmd.extend(["--parse-metadata", "playlist_index:%(track_number)s"])
 
     # Обход n challenge и signature: web_safari client + удалённые компоненты + PO Token
-    cmd.extend(["--extractor-args", "youtube:player_client=web_safari"])
+    cmd.extend(["--extractor-args", "youtube:player_client=mweb"])
     cmd.extend(["--extractor-args", f"youtubepot-bgutilhttp:base_url={DIXTUNE_POT_PROVIDER_URL}"])
     cmd.extend(["--extractor-retries", "3"])
     cmd.extend(["--retries", "3"])
