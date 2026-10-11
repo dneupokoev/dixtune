@@ -34,9 +34,50 @@ sudo chown -R $USER:$USER /opt/dix/dixtune
 
 > **Примечание:** `chown` нужен, чтобы вы могли редактировать файлы без `sudo`. Если вы работаете от root, этот шаг можно пропустить.
 
-### Шаг 2: Отредактируйте `docker-compose.yml`
+### Шаг 2: Создайте файл `.env`
 
-Откройте файл `docker-compose.yml` и замените путь к музыке и пароль на свои:
+Файл `.env` не хранится в репозитории (он в `.gitignore`). Создайте его из шаблона:
+
+```bash
+cd /opt/dix/dixtune
+cp .env.example .env
+nano .env
+```
+
+Заполните файл своими значениями:
+
+```env
+# Логин и пароль для Basic Auth
+DIXTUNE_USERNAME=admin
+DIXTUNE_PASSWORD=ваш_надёжный_пароль
+
+# Путь к папке с музыкой (куда скачивать аудио)
+DIXTUNE_MUSIC_DIR=/media/music/dixtune
+
+# Путь к папке с данными (БД, логи, архив yt-dlp)
+DIXTUNE_DATA_DIR=/opt/dix/dixtune/data
+
+# Интервал синхронизации в часах
+SYNC_INTERVAL_HOURS=6
+
+# Часовой пояс
+TZ=Europe/Moscow
+
+# Путь, если приложение за прокси с подпутём (например, /dixtune)
+# Оставьте пустым для локального запуска
+DIXTUNE_ROOT_PATH=/dixtune
+```
+
+Примеры путей к музыке:
+- **Linux**: `/media/music/dixtune`
+- **macOS**: `/Users/user/Music`
+- **Windows**: `D:/Music`
+
+> **Важно:** для продакшена обязательно укажите `DIXTUNE_ROOT_PATH=/dixtune`, если приложение работает за Nginx с подпутём. Для локального запуска оставьте пустым.
+
+### Шаг 3: Проверьте `docker-compose.yml`
+
+Файл `docker-compose.yml` уже настроен на использование переменных из `.env`:
 
 ```yaml
 services:
@@ -47,15 +88,16 @@ services:
     ports:
       - "8020:8000"
     volumes:
-      - /путь/к/вашей/музыке:/media/music/dixtune   # <-- замените на свой путь
-      - /opt/dix/dixtune/data:/data              # <-- данные будут здесь
+      - ${DIXTUNE_MUSIC_DIR}:/media/music/dixtune
+      - ${DIXTUNE_DATA_DIR}:/data
     environment:
       - DIXTUNE_DATA_DIR=/data
       - DIXTUNE_MUSIC_DIR=/media/music/dixtune
-      - SYNC_INTERVAL_HOURS=6
-      - TZ=Europe/Moscow
-      - DIXTUNE_USERNAME=admin
-      - DIXTUNE_PASSWORD=admin123   # <-- замените на свой пароль
+      - SYNC_INTERVAL_HOURS=${SYNC_INTERVAL_HOURS}
+      - TZ=${TZ}
+      - DIXTUNE_USERNAME=${DIXTUNE_USERNAME}
+      - DIXTUNE_PASSWORD=${DIXTUNE_PASSWORD}
+      - DIXTUNE_ROOT_PATH=${DIXTUNE_ROOT_PATH}
     logging:
       driver: json-file
       options:
@@ -63,29 +105,24 @@ services:
         max-file: "3"
 ```
 
-Примеры путей к музыке:
-- **Linux**: `/media/music/dixtune`
-- **macOS**: `/Users/user/Music`
-- **Windows**: `D:/Music`
-
-### Шаг 3: Запустите
+### Шаг 4: Запустите
 
 ```bash
 cd /opt/dix/dixtune
 sudo docker compose up -d
 ```
 
-### Шаг 4: Откройте в браузере
+### Шаг 5: Откройте в браузере
 
 Перейдите по адресу: [http://localhost:8020/ui](http://localhost:8020/ui)
 
-Введите логин (`admin`) и пароль (`admin123` или тот, который вы указали в шаге 2).
+Введите логин (`admin`) и пароль из `.env`.
 
 ### Что дальше?
 
 1. Добавьте канал через веб-интерфейс.
 2. Нажмите «Синхронизировать все» — DixTune начнёт скачивать аудио.
-3. Файлы появятся в `/media/music/dixtune/<имя_канала>/`.
+3. Файлы появятся в `${DIXTUNE_MUSIC_DIR}/<имя_канала>/`.
 
 ### Обновление
 
@@ -98,6 +135,8 @@ sudo docker compose pull
 sudo docker compose up -d
 ```
 
+> Так как все настройки в `.env`, а `docker-compose.yml` не меняется — `git pull` не вызовет конфликтов.
+
 ### Удаление
 
 ```bash
@@ -107,7 +146,7 @@ cd /opt/dix
 sudo rm -rf dixtune
 ```
 
-*Примечание: папка с данными (`/opt/dix/dixtune/data`) и музыка останутся на диске, если вы их не удалите.*
+*Примечание: папка с данными (`${DIXTUNE_DATA_DIR}`) и музыка останутся на диске, если вы их не удалите.*
 
 ### Docker Run (для опытных пользователей)
 
@@ -121,6 +160,7 @@ docker run -d \
   -v /opt/dix/dixtune/data:/data \
   -e DIXTUNE_USERNAME=admin \
   -e DIXTUNE_PASSWORD=admin123 \
+  -e DIXTUNE_ROOT_PATH= \
   ghcr.io/dneupokoev/dixtune:latest
 ```
 
@@ -222,37 +262,16 @@ curl -u admin:admin123 http://localhost:8020/status
 
 ### Как сменить пароль
 
-Пароль задаётся через переменные окружения при запуске контейнера. Есть два способа:
+Пароль задаётся через `.env`. Измените его и перезапустите контейнер:
 
-**Способ 1: Через `docker-compose.yml`**
-
-1. Откройте `docker-compose.yml`.
-2. В секции `environment` измените строки:
-   ```yaml
-   environment:
-     - DIXTUNE_USERNAME=admin
-     - DIXTUNE_PASSWORD=ваш_новый_пароль
-   ```
-3. Перезапустите контейнер:
+1. Откройте `.env`:
    ```bash
-   cd /opt/dix/dixtune
-   sudo docker compose down
-   sudo docker compose up -d
+   nano /opt/dix/dixtune/.env
    ```
 
-**Способ 2: Через `.env` (рекомендуется)**
-
-1. Создайте файл `.env` рядом с `docker-compose.yml`:
+2. Измените `DIXTUNE_PASSWORD`:
    ```env
-   DIXTUNE_USERNAME=admin
    DIXTUNE_PASSWORD=ваш_новый_пароль
-   ```
-
-2. В `docker-compose.yml` используйте переменные из `.env`:
-   ```yaml
-   environment:
-     - DIXTUNE_USERNAME=${DIXTUNE_USERNAME}
-     - DIXTUNE_PASSWORD=${DIXTUNE_PASSWORD}
    ```
 
 3. Перезапустите:

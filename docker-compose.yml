@@ -1,20 +1,21 @@
 services:
   dixtune:
     image: ghcr.io/dneupokoev/dixtune:latest
+    container_name: dixtune
     restart: unless-stopped
     ports:
       - "8020:8000"
     volumes:
-      - /media/music/dixtune:/media/music/dixtune
-      - /opt/dix/dixtune/data:/data
+      - ${DIXTUNE_MUSIC_DIR}:/media/music/dixtune
+      - ${DIXTUNE_DATA_DIR}:/data
     environment:
       - DIXTUNE_DATA_DIR=/data
       - DIXTUNE_MUSIC_DIR=/media/music/dixtune
-      - SYNC_INTERVAL_HOURS=6
-      - TZ=Europe/Moscow
-      - DIXTUNE_USERNAME=admin
-      - DIXTUNE_PASSWORD=admin123
-      - DIXTUNE_ROOT_PATH=/dixtune
+      - SYNC_INTERVAL_HOURS=${SYNC_INTERVAL_HOURS}
+      - TZ=${TZ}
+      - DIXTUNE_USERNAME=${DIXTUNE_USERNAME}
+      - DIXTUNE_PASSWORD=${DIXTUNE_PASSWORD}
+      - DIXTUNE_ROOT_PATH=${DIXTUNE_ROOT_PATH}
     logging:
       driver: json-file
       options:

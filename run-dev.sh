@@ -3,7 +3,7 @@
 
 set -e
 
-PROJECT_DIR="/opt/dix/dixtune"
+PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PORT="${PORT:-8000}"
 
 cd "$PROJECT_DIR"

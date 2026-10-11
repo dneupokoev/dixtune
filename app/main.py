@@ -13,6 +13,7 @@ from pathlib import Path
 from fastapi import FastAPI, Depends, HTTPException, Request, Response, status
 from fastapi.staticfiles import StaticFiles
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from fastapi.responses import RedirectResponse
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
@@ -82,8 +83,8 @@ app = FastAPI(
 
 @app.middleware("http")
 async def auth_middleware(request: Request, call_next):
-    """Middleware для проверки Basic Auth на всех эндпоинтах, кроме /health и /favicon.ico."""
-    if request.url.path in ("/health", "/favicon.ico"):
+    """Middleware для проверки Basic Auth на всех эндпоинтах, кроме /health, /favicon.ico и /."""
+    if request.url.path in ("/health", "/favicon.ico", "/"):
         return await call_next(request)
     
     # Проверка наличия заголовка Authorization
@@ -122,6 +123,12 @@ async def auth_middleware(request: Request, call_next):
 
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 app.include_router(ui_router)
+
+
+@app.get("/")
+def root_redirect():
+    """Редирект с корня на веб-интерфейс."""
+    return RedirectResponse(url="/ui/", status_code=307)
 
 
 @app.get("/channels", response_model=list[schemas.ChannelResponse])
