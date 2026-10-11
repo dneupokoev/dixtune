@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block title %}Cookies - DixTune{% endblock %}
+
+{% block content %}
+<h2>Cookies для YouTube</h2>
+
+{% if cookies_exist %}
+    <p style="color: green;">Статус: Cookies загружены ({{ cookies_path }})</p>
+{% else %}
+    <p style="color: red;">Статус: Cookies не загружены</p>
+{% endif %}
+
+<h3>Инструкция по получению cookies:</h3>
+<ol>
+    <li>Установите расширение «Get cookies.txt LOCALLY» в браузере.</li>
+    <li>Зайдите на YouTube, авторизуйтесь.</li>
+    <li>Нажмите на расширение → «Export» → сохраните файл cookies.txt.</li>
+    <li>Откройте файл в блокноте, скопируйте всё содержимое.</li>
+    <li>Вставьте в поле ниже и нажмите «Сохранить».</li>
+</ol>
+
+<form method="post" action="{{ url_for('save_cookies_submit') }}">
+    <label for="cookies_content">Содержимое cookies.txt:</label><br>
+    <textarea id="cookies_content" name="cookies_content" rows="10" cols="80" placeholder="Вставьте содержимое файла cookies.txt сюда..."></textarea><br>
+    <button type="submit">Сохранить</button>
+</form>
+
+{% if cookies_exist %}
+    <br>
+    <form method="post" action="{{ url_for('delete_cookies_submit') }}">
+        <button type="submit" style="color: red;">Удалить cookies</button>
+    </form>
+{% endif %}
+{% endblock %}

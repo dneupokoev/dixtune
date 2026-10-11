@@ -19,6 +19,7 @@ DixTune — автоматический загрузчик аудио с YouTub
 - Basic Auth для защиты от несанкционированного доступа.
 - **Обход блокировок YouTube через ByeDPI** (опционально, для серверов в России).
 - **Поддержка Deno** для решения n challenge (автоматически устанавливается в Docker).
+- **Поддержка cookies** для авторизации на YouTube (опционально).
 
 ## Быстрый старт (Prod)
 
@@ -73,6 +74,10 @@ DIXTUNE_ROOT_PATH=/dixtune
 # Если ByeDPI используется, укажите socks5://byedpi:1081
 # Если прокси не нужен, оставьте пустым
 DIXTUNE_PROXY=
+
+# Путь к файлу cookies для yt-dlp (например, /data/cookies.txt)
+# Оставьте пустым, если cookies не нужны
+DIXTUNE_COOKIES=
 ```
 
 Примеры путей к музыке:
@@ -320,6 +325,7 @@ dixtune/
 | `DIXTUNE_PASSWORD` | Пароль для Basic Auth | `admin123` |
 | `DIXTUNE_ROOT_PATH` | Путь, если приложение за прокси с подпутём | `` (пусто) |
 | `DIXTUNE_PROXY` | Прокси для yt-dlp (например, `socks5://byedpi:1081`) | `` (пусто) |
+| `DIXTUNE_COOKIES` | Путь к файлу cookies для yt-dlp | `` (пусто) |
 
 ## Аутентификация
 

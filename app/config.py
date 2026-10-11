@@ -31,6 +31,9 @@ DIXTUNE_ROOT_PATH = os.getenv("DIXTUNE_ROOT_PATH", "")
 # Настройки для обхода блокировок YouTube
 DIXTUNE_PROXY = os.getenv("DIXTUNE_PROXY", "")
 
+# Путь к файлу cookies для yt-dlp
+DIXTUNE_COOKIES = os.getenv("DIXTUNE_COOKIES", str(DATA_DIR / "cookies.txt"))
+
 # Создаём папки при старте
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)

@@ -4,8 +4,8 @@ dv_file_version = '261010.01'
 """Операции CRUD для работы с БД."""
 
 import re
-from datetime import datetime
-from typing import List, Optional
+from datetime import datetime, timedelta
+from typing import List, Optional, Dict
 
 from sqlalchemy.orm import Session
 
@@ -97,3 +97,41 @@ def update_last_checked(db: Session, channel_id: int) -> None:
     if db_channel:
         db_channel.last_checked = datetime.utcnow()
         db.commit()
+
+
+def create_sync_log(db: Session, channel_id: Optional[int], status: str, message: str) -> models.SyncLog:
+    """Создать запись в журнале синхронизации."""
+    log_entry = models.SyncLog(
+        channel_id=channel_id,
+        status=status,
+        message=message
+    )
+    db.add(log_entry)
+    db.commit()
+    db.refresh(log_entry)
+    return log_entry
+
+
+def get_last_sync_logs(db: Session, limit: int = 10) -> List[models.SyncLog]:
+    """Получить последние записи журнала синхронизации."""
+    return db.query(models.SyncLog).order_by(models.SyncLog.created_at.desc()).limit(limit).all()
+
+
+def get_sync_stats(db: Session) -> Dict[str, int]:
+    """Получить статистику синхронизации за последние 24 часа."""
+    since = datetime.utcnow() - timedelta(hours=24)
+    
+    success_count = db.query(models.SyncLog).filter(
+        models.SyncLog.created_at >= since,
+        models.SyncLog.status == "success"
+    ).count()
+    
+    error_count = db.query(models.SyncLog).filter(
+        models.SyncLog.created_at >= since,
+        models.SyncLog.status == "error"
+    ).count()
+    
+    return {
+        "success": success_count,
+        "error": error_count
+    }

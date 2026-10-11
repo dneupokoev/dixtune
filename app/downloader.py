@@ -9,8 +9,10 @@ from pathlib import Path
 from datetime import date
 from typing import Optional
 
-from app.config import MUSIC_DIR, ARCHIVE_FILE, DIXTUNE_PROXY
+from app.config import MUSIC_DIR, ARCHIVE_FILE, DIXTUNE_PROXY, DIXTUNE_COOKIES
 from app.utils import ensure_directory
+from app.database import SessionLocal
+from app import crud
 
 logger = logging.getLogger("DixTune")
 
@@ -18,7 +20,8 @@ logger = logging.getLogger("DixTune")
 def download_channel(
     url: str,
     folder_name: str,
-    min_date: Optional[date] = None
+    min_date: Optional[date] = None,
+    channel_id: Optional[int] = None
 ) -> bool:
     """Скачать аудио с YouTube-канала через yt-dlp.
 
@@ -26,12 +29,14 @@ def download_channel(
         url: URL канала или плейлиста YouTube.
         folder_name: Имя папки, в которую складывать файлы.
         min_date: Минимальная дата публикации видео (не качать старше).
+        channel_id: ID канала для записи в журнал.
 
     Returns:
         True, если скачивание прошло успешно, иначе False.
     """
     channel_dir = MUSIC_DIR / folder_name
     ensure_directory(channel_dir)
+    stderr_lines: list[str] = []
 
     # Нормализация URL: если это канал (@name), добавляем /videos для правильного порядка
     if "youtube.com/@" in url and not url.endswith("/videos"):
@@ -66,6 +71,10 @@ def download_channel(
     if DIXTUNE_PROXY:
         cmd.extend(["--proxy", DIXTUNE_PROXY])
 
+    # Cookies для авторизации на YouTube
+    if DIXTUNE_COOKIES and Path(DIXTUNE_COOKIES).exists():
+        cmd.extend(["--cookies", DIXTUNE_COOKIES])
+
     # Оптимизация перебора: останавливаться на уже скачанных видео
     cmd.extend(["--break-on-existing"])
     cmd.extend(["--break-per-input"])
@@ -75,7 +84,8 @@ def download_channel(
 
     # Обход n challenge и signature: только tv client + удалённые компоненты
     cmd.extend(["--extractor-args", "youtube:player_client=tv"])
-    cmd.extend(["--extractor-retries", "5"])
+    cmd.extend(["--extractor-retries", "10"])
+    cmd.extend(["--retries", "10"])
     cmd.extend(["--remote-components", "ejs:github"])
 
     # Логируем команду перед запуском (без секретов)
@@ -100,6 +110,8 @@ def download_channel(
         def log_stream(stream, prefix):
             for line in stream:
                 line = line.strip()
+                if prefix == "yt-dlp-err":
+                    stderr_lines.append(line)
                 if any(keyword in line for keyword in [
                     "[download]", "Destination:", "ERROR", "WARNING", "100%",
                     "Downloading item", "upload date", "has already been recorded",
@@ -119,16 +131,39 @@ def download_channel(
 
         if process.returncode != 0:
             logger.error(f"yt-dlp завершился с кодом {process.returncode}")
+            error_msg = f"yt-dlp завершился с кодом {process.returncode}"
+            if stderr_lines:
+                error_msg += "\n" + "\n".join(stderr_lines[-10:])
+            db = SessionLocal()
+            try:
+                crud.create_sync_log(db, channel_id, "error", error_msg)
+            finally:
+                db.close()
             return False
 
         # Подсчёт файлов в папке канала (для отчёта)
         file_count = len(list(channel_dir.glob("*.mp3")))
         logger.info(f"Успешно обработан канал: {url}. Файлов в папке: {file_count}")
+        db = SessionLocal()
+        try:
+            crud.create_sync_log(db, channel_id, "success", f"Скачано файлов: {file_count}")
+        finally:
+            db.close()
         return True
 
     except FileNotFoundError:
         logger.error("yt-dlp или ffmpeg не найдены в системе")
+        db = SessionLocal()
+        try:
+            crud.create_sync_log(db, channel_id, "error", "yt-dlp или ffmpeg не найдены в системе")
+        finally:
+            db.close()
         return False
     except Exception as e:
         logger.error(f"Неизвестная ошибка при скачивании {url}: {str(e)}")
+        db = SessionLocal()
+        try:
+            crud.create_sync_log(db, channel_id, "error", f"Неизвестная ошибка: {str(e)}")
+        finally:
+            db.close()
         return False

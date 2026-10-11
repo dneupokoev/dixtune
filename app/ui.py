@@ -13,7 +13,8 @@ from sqlalchemy.orm import Session
 
 from app import crud, schemas
 from app.database import get_db
-from app.config import MUSIC_DIR
+from app.config import MUSIC_DIR, DIXTUNE_COOKIES
+from pathlib import Path
 
 router = APIRouter(prefix="/ui", tags=["ui"])
 templates = Jinja2Templates(directory="app/templates")
@@ -44,12 +45,17 @@ def read_channels_ui(request: Request, db: Session = Depends(get_db)):
         downloaded_count=downloaded_count
     )
 
+    last_logs = crud.get_last_sync_logs(db, limit=5)
+    stats = crud.get_sync_stats(db)
+
     return templates.TemplateResponse(
         request=request,
         name="channels.html",
         context={
             "channels": channels,
-            "status": status
+            "status": status,
+            "last_logs": last_logs,
+            "stats": stats
         }
     )
 
@@ -141,7 +147,8 @@ def check_channel_submit(channel_id: int, request: Request, db: Session = Depend
         download_channel(
             url=channel.url,
             folder_name=channel.folder_name,
-            min_date=channel.min_date
+            min_date=channel.min_date,
+            channel_id=channel_id
         )
         crud.update_last_checked(db, channel_id)
     return RedirectResponse(url=str(request.url_for("read_channels_ui")), status_code=303)
@@ -153,3 +160,44 @@ def trigger_sync_submit(request: Request):
     from app.scheduler import sync_all_channels
     sync_all_channels()
     return RedirectResponse(url=str(request.url_for("read_channels_ui")), status_code=303)
+
+
+@router.get("/settings/cookies")
+def cookies_form(request: Request):
+    """Страница управления cookies для YouTube."""
+    cookies_path = Path(DIXTUNE_COOKIES)
+    cookies_exist = cookies_path.exists()
+    
+    return templates.TemplateResponse(
+        request=request,
+        name="cookies_form.html",
+        context={
+            "cookies_exist": cookies_exist,
+            "cookies_path": str(cookies_path)
+        }
+    )
+
+
+@router.post("/settings/cookies")
+def save_cookies_submit(
+        request: Request,
+        cookies_content: str = Form(...)
+):
+    """Сохранение содержимого cookies в файл."""
+    cookies_path = Path(DIXTUNE_COOKIES)
+    cookies_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    with open(cookies_path, "w", encoding="utf-8") as f:
+        f.write(cookies_content)
+        
+    return RedirectResponse(url=str(request.url_for("cookies_form")), status_code=303)
+
+
+@router.post("/settings/cookies/delete")
+def delete_cookies_submit(request: Request):
+    """Удаление файла cookies."""
+    cookies_path = Path(DIXTUNE_COOKIES)
+    if cookies_path.exists():
+        cookies_path.unlink()
+        
+    return RedirectResponse(url=str(request.url_for("cookies_form")), status_code=303)

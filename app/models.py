@@ -3,7 +3,7 @@
 dv_file_version = '261010.01'
 """Модели данных SQLAlchemy."""
 
-from sqlalchemy import Column, Integer, String, Boolean, Date, DateTime
+from sqlalchemy import Column, Integer, String, Boolean, Date, DateTime, Text
 from sqlalchemy.sql import func
 
 from app.database import Base
@@ -22,4 +22,16 @@ class Channel(Base):
     enabled = Column(Boolean, default=True)
     transliterate = Column(Boolean, default=False)
     last_checked = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=func.now())
+
+
+class SyncLog(Base):
+    """Модель журнала синхронизации."""
+
+    __tablename__ = "sync_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    channel_id = Column(Integer, nullable=True)
+    status = Column(String, nullable=False)
+    message = Column(Text, nullable=True)
     created_at = Column(DateTime, default=func.now())

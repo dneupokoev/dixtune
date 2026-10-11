@@ -77,4 +77,25 @@
     <p>Каналы не найдены. Добавьте первый канал.</p>
 </div>
 {% endif %}
+
+<div class="logs-section">
+    <h2>Последние события</h2>
+    <div class="stats-bar">
+        <span class="stat-item success">Успешных за 24ч: {{ stats.success }}</span>
+        <span class="stat-item error">Ошибок за 24ч: {{ stats.error }}</span>
+    </div>
+    {% if last_logs %}
+    <div class="logs-list">
+        {% for log in last_logs %}
+        <div class="log-entry {{ log.status }}">
+            <span class="timestamp">{{ log.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
+            <span class="log-status">{{ log.status }}</span>
+            <span class="log-message">{{ log.message }}</span>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p>Нет записей в журнале.</p>
+    {% endif %}
+</div>
 {% endblock %}
