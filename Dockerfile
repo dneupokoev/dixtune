@@ -1,17 +1,21 @@
 FROM python:3.12-slim
 
 # Установка системных зависимостей
-RUN apt-get update && apt-get install -y \
+# --no-install-recommends не ставит рекомендованные пакеты (экономит место)
+# rm -rf /var/lib/apt/lists/* очищает кеш apt (экономит место)
+RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
-# Создание директорий
-RUN mkdir -p /media/music/dixtune /data/logs
+# Рабочая директория
+WORKDIR /app
 
-# Копирование файлов проекта
+# Копирование зависимостей и установка
+# --no-cache-dir не сохраняет кеш pip в образе (экономит место)
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Копирование исходного кода
 COPY app/ ./app/
 
 # Запуск приложения DixTune
