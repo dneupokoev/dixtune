@@ -49,6 +49,7 @@ def download_channel(
         "--audio-format", "mp3",                 # Формат MP3
         "--audio-quality", "128K",               # Битрейт 128 kbps
         "--sponsorblock-remove", "default",      # Вырезать спонсорские вставки
+        "--sponsorblock-api", "https://api.sponsor.ajay.app",
         "--download-archive", str(ARCHIVE_FILE), # Архив скачанных видео
         "--no-overwrites",                       # Не перезаписывать существующие
         "--ignore-errors",                       # Продолжать при ошибках
