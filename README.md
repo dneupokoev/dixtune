@@ -4,7 +4,7 @@
 [![GitHub release](https://img.shields.io/github/v/release/dneupokoev/dixtune)](https://github.com/dneupokoev/dixtune/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-DixTune — автоматический загрузчик аудио с YouTube-каналов. Скачивает аудио (MP3, 128 kbps) через yt-dlp, вырезает рекламные вставки через SponsorBlock и предоставляет веб-интерфейс для управления каналами.
+DixTune — автоматический загрузчик аудио с YouTube-каналов. Скачивает аудио, вырезает рекламные вставки через SponsorBlock и предоставляет веб-интерфейс для управления каналами.
 
 ## Возможности
 
@@ -20,27 +20,42 @@ DixTune — автоматический загрузчик аудио с YouTub
 
 ## Быстрый старт (Prod)
 
-### Docker Compose
+Для установки нужны только **Docker** и **Git**. Python и другие зависимости устанавливать не нужно — всё уже внутри образа.
 
-1. Скачайте `docker-compose.yml` из репозитория или создайте его с примерным содержимым:
+### Шаг 1: Клонируйте репозиторий в `/opt/dix/dixtune`
+
+```bash
+sudo mkdir -p /opt/dix
+cd /opt/dix
+sudo git clone https://github.com/dneupokoev/dixtune.git
+cd dixtune
+sudo chown -R $USER:$USER /opt/dix/dixtune
+```
+
+> **Примечание:** `chown` нужен, чтобы вы могли редактировать файлы без `sudo`. Если вы работаете от root, этот шаг можно пропустить.
+
+### Шаг 2: Отредактируйте `docker-compose.yml`
+
+Откройте файл `docker-compose.yml` и замените путь к музыке и пароль на свои:
 
 ```yaml
 services:
   dixtune:
     image: ghcr.io/dneupokoev/dixtune:latest
+    container_name: dixtune
     restart: unless-stopped
     ports:
       - "8020:8000"
     volumes:
-      - /media/music/dixtune:/media/music/dixtune
-      - ./data:/data
+      - /путь/к/вашей/музыке:/media/music/dixtune   # <-- замените на свой путь
+      - /opt/dix/dixtune/data:/data              # <-- данные будут здесь
     environment:
       - DIXTUNE_DATA_DIR=/data
       - DIXTUNE_MUSIC_DIR=/media/music/dixtune
       - SYNC_INTERVAL_HOURS=6
       - TZ=Europe/Moscow
       - DIXTUNE_USERNAME=admin
-      - DIXTUNE_PASSWORD=admin123
+      - DIXTUNE_PASSWORD=admin123   # <-- замените на свой пароль
     logging:
       driver: json-file
       options:
@@ -48,15 +63,53 @@ services:
         max-file: "3"
 ```
 
-2. Замените путь к музыке в `volumes` на нужный вам.
-3. Замените `DIXTUNE_PASSWORD` на надёжный пароль.
-4. Запустите:
+Примеры путей к музыке:
+- **Linux**: `/media/music/dixtune`
+- **macOS**: `/Users/user/Music`
+- **Windows**: `D:/Music`
+
+### Шаг 3: Запустите
 
 ```bash
-docker compose up -d
+cd /opt/dix/dixtune
+sudo docker compose up -d
 ```
 
-### Docker Run
+### Шаг 4: Откройте в браузере
+
+Перейдите по адресу: [http://localhost:8020/ui](http://localhost:8020/ui)
+
+Введите логин (`admin`) и пароль (`admin123` или тот, который вы указали в шаге 2).
+
+### Что дальше?
+
+1. Добавьте канал через веб-интерфейс.
+2. Нажмите «Синхронизировать все» — DixTune начнёт скачивать аудио.
+3. Файлы появятся в `/media/music/dixtune/<имя_канала>/`.
+
+### Обновление
+
+Чтобы получить последнюю версию приложения:
+
+```bash
+cd /opt/dix/dixtune
+sudo git pull
+sudo docker compose pull
+sudo docker compose up -d
+```
+
+### Удаление
+
+```bash
+cd /opt/dix/dixtune
+sudo docker compose down
+cd /opt/dix
+sudo rm -rf dixtune
+```
+
+*Примечание: папка с данными (`/opt/dix/dixtune/data`) и музыка останутся на диске, если вы их не удалите.*
+
+### Docker Run (для опытных пользователей)
 
 Замените `/path/to/music` на реальный путь к вашей папке с музыкой.
 
@@ -65,7 +118,7 @@ docker run -d \
   --name dixtune \
   -p 8020:8000 \
   -v /path/to/music:/media/music/dixtune \
-  -v ./data:/data \
+  -v /opt/dix/dixtune/data:/data \
   -e DIXTUNE_USERNAME=admin \
   -e DIXTUNE_PASSWORD=admin123 \
   ghcr.io/dneupokoev/dixtune:latest
@@ -73,19 +126,27 @@ docker run -d \
 
 ## Локальная разработка (без Docker)
 
-1. Установите зависимости:
+1. Клонируйте репозиторий:
+
+```bash
+cd /opt/dix
+git clone https://github.com/dneupokoev/dixtune.git
+cd dixtune
+```
+
+2. Установите зависимости:
 
 ```bash
 pipenv install
 ```
 
-2. Запустите сервер:
+3. Запустите сервер:
 
 ```bash
 pipenv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-3. Откройте веб-интерфейс: [http://localhost:8000/ui](http://localhost:8000/ui)
+4. Откройте веб-интерфейс: [http://localhost:8000/ui](http://localhost:8000/ui)
 
 ## Структура проекта
 
@@ -162,10 +223,10 @@ curl -u admin:admin123 http://localhost:8020/status
 
 Пароль задаётся через переменные окружения при запуске контейнера. Есть два способа:
 
-**Способ 1: Через docker-compose.yml**
+**Способ 1: Через `docker-compose.yml`**
 
 1. Откройте `docker-compose.yml`.
-2. В секции `environment` добавьте (или измените) строки:
+2. В секции `environment` измените строки:
    ```yaml
    environment:
      - DIXTUNE_USERNAME=admin
@@ -173,11 +234,12 @@ curl -u admin:admin123 http://localhost:8020/status
    ```
 3. Перезапустите контейнер:
    ```bash
-   docker compose down
-   docker compose up -d
+   cd /opt/dix/dixtune
+   sudo docker compose down
+   sudo docker compose up -d
    ```
 
-**Способ 2: Через .env (рекомендуется)**
+**Способ 2: Через `.env` (рекомендуется)**
 
 1. Создайте файл `.env` рядом с `docker-compose.yml`:
    ```env
@@ -194,8 +256,9 @@ curl -u admin:admin123 http://localhost:8020/status
 
 3. Перезапустите:
    ```bash
-   docker compose down
-   docker compose up -d
+   cd /opt/dix/dixtune
+   sudo docker compose down
+   sudo docker compose up -d
    ```
 
 **Важно:** после смены пароля все активные сессии Basic Auth сбросятся — браузер снова запросит логин и пароль.

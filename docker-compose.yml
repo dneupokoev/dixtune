@@ -6,7 +6,7 @@ services:
       - "8020:8000"
     volumes:
       - /media/music/dixtune:/media/music/dixtune
-      - ./data:/data
+      - /opt/dix/dixtune/data:/data
     environment:
       - DIXTUNE_DATA_DIR=/data
       - DIXTUNE_MUSIC_DIR=/media/music/dixtune
