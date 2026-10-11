@@ -33,6 +33,10 @@ def download_channel(
     channel_dir = MUSIC_DIR / folder_name
     ensure_directory(channel_dir)
 
+    # Нормализация URL: если это канал (@name), добавляем /videos для правильного порядка
+    if "youtube.com/@" in url and not url.endswith("/videos"):
+        url = url.rstrip("/") + "/videos"
+
     # Формируем команду yt-dlp
     cmd = [
         "yt-dlp",
@@ -61,6 +65,10 @@ def download_channel(
     # Обход блокировок: прокси (ByeDPI)
     if DIXTUNE_PROXY:
         cmd.extend(["--proxy", DIXTUNE_PROXY])
+
+    # Оптимизация перебора: останавливаться на уже скачанных видео
+    cmd.extend(["--break-on-existing"])
+    cmd.extend(["--break-per-input"])
 
     # Обход n challenge и signature: только tv client + удалённые компоненты
     cmd.extend(["--extractor-args", "youtube:player_client=tv"])
