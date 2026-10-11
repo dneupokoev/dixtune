@@ -52,7 +52,7 @@ def download_channel(
         "--download-archive", str(ARCHIVE_FILE), # Архив скачанных видео
         "--no-overwrites",                       # Не перезаписывать существующие
         "--ignore-errors",                       # Продолжать при ошибках
-        "-o", str(channel_dir / "%(upload_date>%Y%m%d)s_%(title)s.%(ext)s"),
+        "-o", str(channel_dir / "%(title)s.%(ext)s"),
         url
     ]
 
@@ -71,6 +71,9 @@ def download_channel(
     if DIXTUNE_PROXY:
         cmd.extend(["--proxy", DIXTUNE_PROXY])
 
+    # Пауза между запросами для снижения нагрузки на ByeDPI
+    cmd.extend(["--sleep-requests", "1"])
+
     # Cookies для авторизации на YouTube
     if DIXTUNE_COOKIES and Path(DIXTUNE_COOKIES).exists():
         cmd.extend(["--cookies", DIXTUNE_COOKIES])
@@ -78,8 +81,9 @@ def download_channel(
     # Автоматическое заполнение тегов MP3 на основе метаданных YouTube
     cmd.extend(["--embed-metadata"])
     cmd.extend(["--parse-metadata", "uploader:%(album_artist)s"])
-    cmd.extend(["--parse-metadata", "playlist_title:%(album)s"])
+    cmd.extend(["--parse-metadata", "YouTube:%(album)s"])
     cmd.extend(["--parse-metadata", "playlist_index:%(track_number)s"])
+    cmd.extend(["--parse-metadata", "%(upload_date>%Y%m%d)s %(title)s:%(title)s"])
 
     # Обход n challenge и signature: web_safari client + удалённые компоненты + PO Token
     cmd.extend(["--extractor-args", "youtube:player_client=mweb"])
