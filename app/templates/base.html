@@ -11,8 +11,8 @@
     <header>
         <h1>DixTune</h1>
         <nav>
-            <a href="/ui/">Каналы</a>
-            <a href="/ui/channels/new">Добавить канал</a>
+            <a href="{{ url_for('read_channels_ui') }}">Каналы</a>
+            <a href="{{ url_for('create_channel_form') }}">Добавить канал</a>
         </nav>
     </header>
     <main>

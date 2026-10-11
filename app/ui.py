@@ -62,7 +62,7 @@ def create_channel_form(request: Request):
         name="channel_form.html",
         context={
             "channel": None,
-            "action": "/ui/channels/new"
+            "action": str(request.url_for("create_channel_submit"))
         }
     )
 
@@ -84,7 +84,7 @@ def create_channel_submit(
         transliterate=transliterate
     )
     crud.create_channel(db, channel_create)
-    return RedirectResponse(url="/ui/", status_code=303)
+    return RedirectResponse(url=str(request.url_for("read_channels_ui")), status_code=303)
 
 
 @router.get("/channels/{channel_id}/edit")
@@ -92,14 +92,14 @@ def edit_channel_form(channel_id: int, request: Request, db: Session = Depends(g
     """Форма редактирования канала."""
     channel = crud.get_channel(db, channel_id)
     if not channel:
-        return RedirectResponse(url="/ui/", status_code=303)
+        return RedirectResponse(url=str(request.url_for("read_channels_ui")), status_code=303)
 
     return templates.TemplateResponse(
         request=request,
         name="channel_form.html",
         context={
             "channel": channel,
-            "action": f"/ui/channels/{channel_id}/edit"
+            "action": str(request.url_for("edit_channel_submit", channel_id=channel_id))
         }
     )
 
@@ -122,18 +122,18 @@ def edit_channel_submit(
         enabled=enabled
     )
     crud.update_channel(db, channel_id, channel_update)
-    return RedirectResponse(url="/ui/", status_code=303)
+    return RedirectResponse(url=str(request.url_for("read_channels_ui")), status_code=303)
 
 
 @router.post("/channels/{channel_id}/delete")
-def delete_channel_submit(channel_id: int, db: Session = Depends(get_db)):
+def delete_channel_submit(channel_id: int, request: Request, db: Session = Depends(get_db)):
     """Удаление канала (только запись из БД)."""
     crud.delete_channel(db, channel_id)
-    return RedirectResponse(url="/ui/", status_code=303)
+    return RedirectResponse(url=str(request.url_for("read_channels_ui")), status_code=303)
 
 
 @router.post("/channels/{channel_id}/check")
-def check_channel_submit(channel_id: int, db: Session = Depends(get_db)):
+def check_channel_submit(channel_id: int, request: Request, db: Session = Depends(get_db)):
     """Запуск проверки конкретного канала."""
     channel = crud.get_channel(db, channel_id)
     if channel:
@@ -144,12 +144,12 @@ def check_channel_submit(channel_id: int, db: Session = Depends(get_db)):
             min_date=channel.min_date
         )
         crud.update_last_checked(db, channel_id)
-    return RedirectResponse(url="/ui/", status_code=303)
+    return RedirectResponse(url=str(request.url_for("read_channels_ui")), status_code=303)
 
 
 @router.post("/sync")
-def trigger_sync_submit():
+def trigger_sync_submit(request: Request):
     """Запуск синхронизации всех включённых каналов."""
     from app.scheduler import sync_all_channels
     sync_all_channels()
-    return RedirectResponse(url="/ui/", status_code=303)
+    return RedirectResponse(url=str(request.url_for("read_channels_ui")), status_code=303)

@@ -3,6 +3,7 @@
 dv_file_version = '261010.01'
 """Точка входа FastAPI-приложения DixTune."""
 
+import base64
 import logging
 import logging.handlers
 import secrets
@@ -12,14 +13,13 @@ from pathlib import Path
 
 from fastapi import FastAPI, Depends, HTTPException, Request, Response, status
 from fastapi.staticfiles import StaticFiles
-from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi.responses import RedirectResponse
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app import models, schemas, crud
 from app.database import engine, Base, get_db
-from app.config import MUSIC_DIR, DATA_DIR, LOG_PATH, DIXTUNE_USERNAME, DIXTUNE_PASSWORD, DIXTUNE_ROOT_PATH
+from app.config import MUSIC_DIR, LOG_PATH, DIXTUNE_USERNAME, DIXTUNE_PASSWORD, DIXTUNE_ROOT_PATH
 from app.scheduler import start_scheduler, stop_scheduler, sync_all_channels
 from app.utils import ensure_directory
 from app.ui import router as ui_router
@@ -46,21 +46,6 @@ logger = logging.getLogger("DixTune")
 # Создание таблиц БД
 Base.metadata.create_all(bind=engine)
 
-security = HTTPBasic()
-
-
-def get_current_username(credentials: HTTPBasicCredentials = Depends(security)) -> str:
-    """Проверка Basic Auth."""
-    correct_username = secrets.compare_digest(credentials.username.encode("utf8"), DIXTUNE_USERNAME.encode("utf8"))
-    correct_password = secrets.compare_digest(credentials.password.encode("utf8"), DIXTUNE_PASSWORD.encode("utf8"))
-    if not (correct_username and correct_password):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Неверные логин или пароль",
-            headers={"WWW-Authenticate": "Basic"},
-        )
-    return credentials.username
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -84,7 +69,10 @@ app = FastAPI(
 @app.middleware("http")
 async def auth_middleware(request: Request, call_next):
     """Middleware для проверки Basic Auth на всех эндпоинтах, кроме /health, /favicon.ico и /."""
-    if request.url.path in ("/health", "/favicon.ico", "/"):
+    path = request.url.path
+    if DIXTUNE_ROOT_PATH and path.startswith(DIXTUNE_ROOT_PATH):
+        path = path[len(DIXTUNE_ROOT_PATH):]
+    if path in ("/health", "/favicon.ico", "/"):
         return await call_next(request)
     
     # Проверка наличия заголовка Authorization
@@ -98,7 +86,6 @@ async def auth_middleware(request: Request, call_next):
     
     try:
         # Декодируем Basic Auth
-        import base64
         scheme, credentials = auth_header.split(" ")
         decoded = base64.b64decode(credentials).decode("utf-8")
         username, password = decoded.split(":", 1)
@@ -126,9 +113,9 @@ app.include_router(ui_router)
 
 
 @app.get("/")
-def root_redirect():
+def root_redirect(request: Request):
     """Редирект с корня на веб-интерфейс."""
-    return RedirectResponse(url="/ui/", status_code=307)
+    return RedirectResponse(url=str(request.url_for("read_channels_ui")), status_code=307)
 
 
 @app.get("/channels", response_model=list[schemas.ChannelResponse])

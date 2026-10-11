@@ -126,12 +126,13 @@ sudo docker compose up -d
 
 ### Обновление
 
-Чтобы получить последнюю версию приложения:
+Чтобы получить последнюю версию приложения, выполните на сервере:
 
 ```bash
 cd /opt/dix/dixtune
 sudo git pull
 sudo docker compose pull
+sudo docker compose down
 sudo docker compose up -d
 ```
 
@@ -212,7 +213,7 @@ dixtune/
 │       └── channel_form.html # Форма добавления/редактирования
 ├── data/                   # БД, логи, архив yt-dlp (в .gitignore)
 ├── .github/workflows/      # CI/CD
-│   └── deploy.yml          # Сборка образа + деплой на сервер
+│   └── deploy.yml          # Сборка образа и публикация в GHCR
 ├── deploy.sh               # Скрипт деплоя на прод
 ├── Dockerfile              # Сборка образа
 ├── docker-compose.yml      # Запуск на проде

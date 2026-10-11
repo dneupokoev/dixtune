@@ -1,10 +1,9 @@
-name: Build and Deploy DixTune
+name: Build and Push DixTune
 
 on:
   push:
     branches:
       - main
-      - dev
 
 jobs:
   build-and-push:
@@ -29,21 +28,4 @@ jobs:
         with:
           context: .
           push: true
-          tags: ghcr.io/dneupokoev/dixtune:${{ github.ref == 'refs/heads/main' && 'latest' || 'dev' }}
-
-  deploy:
-    needs: build-and-push
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
-
-    steps:
-      - name: Deploy DixTune to server
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USERNAME }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script: |
-            cd /opt/dix/dixtune
-            docker compose -f docker-compose.yml -f docker-compose.prod.yml pull
-            docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+          tags: ghcr.io/dneupokoev/dixtune:latest

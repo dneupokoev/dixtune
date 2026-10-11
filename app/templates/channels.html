@@ -23,10 +23,10 @@
 </div>
 
 <div class="actions-bar">
-    <a href="/ui/channels/new" class="btn btn-primary">
+    <a href="{{ url_for('create_channel_form') }}" class="btn btn-primary">
         <span class="btn-icon">➕</span> Добавить канал
     </a>
-    <form action="/ui/sync" method="post" style="display:inline;">
+    <form action="{{ url_for('trigger_sync_submit') }}" method="post" style="display:inline;">
         <button type="submit" class="btn btn-success">
             <span class="btn-icon">🔄</span> Синхронизировать все
         </button>
@@ -59,11 +59,11 @@
             <td>{{ channel.last_checked.strftime('%Y-%m-%d %H:%M') if channel.last_checked else '-' }}</td>
             <td>
                 <div class="action-buttons">
-                    <a href="/ui/channels/{{ channel.id }}/edit" class="btn-icon-only btn-secondary" title="Редактировать">✏️</a>
-                    <form action="/ui/channels/{{ channel.id }}/check" method="post" style="display:inline;">
+                    <a href="{{ url_for('edit_channel_form', channel_id=channel.id) }}" class="btn-icon-only btn-secondary" title="Редактировать">✏️</a>
+                    <form action="{{ url_for('check_channel_submit', channel_id=channel.id) }}" method="post" style="display:inline;">
                         <button type="submit" class="btn-icon-only btn-success" title="Проверить">🔄</button>
                     </form>
-                    <form action="/ui/channels/{{ channel.id }}/delete" method="post" style="display:inline;" onsubmit="return confirm('Удалить канал? Папка с файлами не будет удалена.');">
+                    <form action="{{ url_for('delete_channel_submit', channel_id=channel.id) }}" method="post" style="display:inline;" onsubmit="return confirm('Удалить канал? Папка с файлами не будет удалена.');">
                         <button type="submit" class="btn-icon-only btn-danger" title="Удалить">🗑️</button>
                     </form>
                 </div>
