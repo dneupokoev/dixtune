@@ -16,7 +16,8 @@ services:
       - DIXTUNE_USERNAME=${DIXTUNE_USERNAME}
       - DIXTUNE_PASSWORD=${DIXTUNE_PASSWORD}
       - DIXTUNE_ROOT_PATH=${DIXTUNE_ROOT_PATH}
-      - DIXTUNE_PROXY=socks5://byedpi:1081  # <-- Указываем прокси
+      - DIXTUNE_PROXY=${DIXTUNE_PROXY}
+      - DIXTUNE_COOKIES=${DIXTUNE_COOKIES}
     depends_on:
       - byedpi
     logging:

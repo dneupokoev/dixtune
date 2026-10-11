@@ -17,6 +17,9 @@ DixTune — автоматический загрузчик аудио с YouTub
 - Ротация логов.
 - REST API + Swagger.
 - Basic Auth для защиты от несанкционированного доступа.
+- **Обход блокировок YouTube через ByeDPI** (опционально, для серверов в России).
+- **Поддержка Deno** для решения n challenge (автоматически устанавливается в Docker).
+- **Поддержка cookies** для обхода блокировок по IP (опционально).
 
 ## Быстрый старт (Prod)
 
@@ -66,6 +69,11 @@ TZ=Europe/Moscow
 # Путь, если приложение за прокси с подпутём (например, /dixtune)
 # Оставьте пустым для локального запуска
 DIXTUNE_ROOT_PATH=/dixtune
+
+# Прокси для yt-dlp (если YouTube блокируется)
+# Если ByeDPI используется, укажите socks5://byedpi:1081
+# Если прокси не нужен, оставьте пустым
+DIXTUNE_PROXY=
 ```
 
 Примеры путей к музыке:
@@ -98,6 +106,7 @@ services:
       - DIXTUNE_USERNAME=${DIXTUNE_USERNAME}
       - DIXTUNE_PASSWORD=${DIXTUNE_PASSWORD}
       - DIXTUNE_ROOT_PATH=${DIXTUNE_ROOT_PATH}
+      - DIXTUNE_PROXY=${DIXTUNE_PROXY}
     logging:
       driver: json-file
       options:
@@ -123,6 +132,79 @@ sudo docker compose up -d
 1. Добавьте канал через веб-интерфейс.
 2. Нажмите «Синхронизировать все» — DixTune начнёт скачивать аудио.
 3. Файлы появятся в `${DIXTUNE_MUSIC_DIR}/<имя_канала>/`.
+
+### Обход блокировок YouTube (ByeDPI)
+
+Если ваш сервер находится в России и провайдер блокирует YouTube на уровне DPI, `yt-dlp` будет падать с ошибкой `SSL handshake timed out`. Для обхода используется **ByeDPI** — локальный SOCKS5-прокси, который маскирует TLS-рукопожатие.
+
+**1. Добавьте сервис ByeDPI в `docker-compose.yml`:**
+
+```yaml
+services:
+  dixtune:
+    # ... (см. выше)
+    depends_on:
+      - byedpi
+
+  byedpi:
+    image: andromedi4/byedpi-orchestrator:latest
+    container_name: byedpi
+    restart: unless-stopped
+    volumes:
+      - ./byedpi-data:/app
+      - ./byedpi-config:/opt/orchestrator/config
+    ports:
+      - "1080:1080"
+```
+
+**2. В `.env` укажите прокси:**
+
+```env
+DIXTUNE_PROXY=socks5://byedpi:1081
+```
+
+> **Важно:** ByeDPI слушает порт **1081** внутри контейнера, а не 1080. Порт 1080 — это внешний проброс.
+
+**3. Перезапустите:**
+
+```bash
+cd /opt/dix/dixtune
+sudo docker compose down
+sudo docker compose up -d
+```
+
+**4. Дождитесь, пока ByeDPI выберет стратегию.** Это занимает 1–2 минуты. В логах появится строка:
+```
+[orchestrator] global | '...' => score=0.799 avail=0.90 median=0.589
+```
+
+**5. Проверьте логи DixTune:**
+```bash
+sudo docker compose logs -f dixtune
+```
+
+Если `yt-dlp` начал скачивать — всё работает.
+
+### Deno и n challenge
+
+Для решения n challenge (защита YouTube от ботов) DixTune использует **Deno**. Deno автоматически устанавливается в Docker-образе, поэтому дополнительных действий не требуется.
+
+### Cookies (опционально)
+
+Если YouTube блокирует доступ по IP (даже с ByeDPI), можно использовать cookies браузера:
+
+1. Экспортируйте cookies из браузера в формате Netscape (например, через расширение "Get cookies.txt LOCALLY").
+2. Сохраните файл как `cookies.txt` в папке проекта.
+3. В `.env` укажите путь к файлу:
+   ```env
+   DIXTUNE_COOKIES=/app/cookies.txt
+   ```
+4. Перезапустите контейнер:
+   ```bash
+   cd /opt/dix/dixtune
+   sudo docker compose down
+   sudo docker compose up -d
+   ```
 
 ### Обновление
 
@@ -162,6 +244,7 @@ docker run -d \
   -e DIXTUNE_USERNAME=admin \
   -e DIXTUNE_PASSWORD=admin123 \
   -e DIXTUNE_ROOT_PATH= \
+  -e DIXTUNE_PROXY= \
   ghcr.io/dneupokoev/dixtune:latest
 ```
 
@@ -212,6 +295,8 @@ dixtune/
 │       ├── channels.html   # Список каналов
 │       └── channel_form.html # Форма добавления/редактирования
 ├── data/                   # БД, логи, архив yt-dlp (в .gitignore)
+├── byedpi-data/            # Данные ByeDPI (в .gitignore)
+├── byedpi-config/          # Конфиги ByeDPI (в .gitignore)
 ├── .github/workflows/      # CI/CD
 │   └── deploy.yml          # Сборка образа и публикация в GHCR
 ├── deploy.sh               # Скрипт деплоя на прод
@@ -250,6 +335,8 @@ dixtune/
 | `DIXTUNE_USERNAME` | Логин для Basic Auth | `admin` |
 | `DIXTUNE_PASSWORD` | Пароль для Basic Auth | `admin123` |
 | `DIXTUNE_ROOT_PATH` | Путь, если приложение за прокси с подпутём | `` (пусто) |
+| `DIXTUNE_PROXY` | Прокси для yt-dlp (например, `socks5://byedpi:1081`) | `` (пусто) |
+| `DIXTUNE_COOKIES` | Путь к файлу cookies для yt-dlp (опционально) | `` (пусто) |
 
 ## Аутентификация
 

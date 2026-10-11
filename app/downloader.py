@@ -50,27 +50,40 @@ def download_channel(
     if DIXTUNE_COOKIES:
         cmd.extend(["--cookies", DIXTUNE_COOKIES])
     cmd.extend(["--extractor-args", "youtube:player_client=tv,mweb"])
+    cmd.extend(["--extractor-retries", "5"])
+
+    # Логируем команду перед запуском (без паролей)
+    safe_cmd = [arg for arg in cmd if not any(secret in arg for secret in [DIXTUNE_PROXY, DIXTUNE_COOKIES] if secret)]
+    logger.info(f"Запуск yt-dlp: {' '.join(safe_cmd)}")
 
     try:
-        result = subprocess.run(
+        process = subprocess.Popen(
             cmd,
-            capture_output=True,
-            text=True,
-            timeout=3600  # 1 час на скачивание
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True
         )
 
-        if result.returncode != 0:
-            logger.error(f"Ошибка yt-dlp для {url}: {result.stderr}")
+        # Построчное чтение вывода в реальном времени
+        for line in process.stdout:
+            logger.info(f"yt-dlp: {line.strip()}")
+        
+        stderr_output = process.stderr.read()
+        process.wait()
+
+        if process.returncode != 0:
+            logger.error(f"yt-dlp завершился с кодом {process.returncode}")
+            if stderr_output:
+                logger.error(f"yt-dlp stderr: {stderr_output}")
             return False
 
-        logger.info(f"Успешно обработан канал: {url}")
+        # Подсчёт новых файлов в папке канала
+        file_count = len(list(channel_dir.glob("*.mp3")))
+        logger.info(f"Успешно обработан канал: {url}. Файлов в папке: {file_count}")
         return True
 
     except FileNotFoundError:
         logger.error("yt-dlp или ffmpeg не найдены в системе")
-        return False
-    except subprocess.TimeoutExpired:
-        logger.error(f"Таймаут при скачивании {url}")
         return False
     except Exception as e:
         logger.error(f"Неизвестная ошибка при скачивании {url}: {str(e)}")

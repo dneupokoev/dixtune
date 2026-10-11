@@ -5,7 +5,13 @@ FROM python:3.12-slim
 # rm -rf /var/lib/apt/lists/* очищает кеш apt (экономит место)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
+    curl \
+    unzip \
+    && curl -fsSL https://deno.land/install.sh | sh \
     && rm -rf /var/lib/apt/lists/*
+
+# Добавляем Deno в PATH
+ENV PATH="/root/.deno/bin:$PATH"
 
 # Рабочая директория
 WORKDIR /app
