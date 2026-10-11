@@ -70,6 +70,9 @@ def download_channel(
     cmd.extend(["--break-on-existing"])
     cmd.extend(["--break-per-input"])
 
+    # Временный флаг для отладки логирования
+    cmd.extend(["--verbose"])
+
     # Обход n challenge и signature: только tv client + удалённые компоненты
     cmd.extend(["--extractor-args", "youtube:player_client=tv"])
     cmd.extend(["--extractor-retries", "5"])
@@ -90,22 +93,32 @@ def download_channel(
             text=True
         )
 
-        # Построчное чтение вывода в реальном времени.
-        # Логируем только важные строки, чтобы не засорять лог.
-        for line in process.stdout:
-            line = line.strip()
-            if any(keyword in line for keyword in [
-                "[download]", "Destination:", "ERROR", "WARNING", "100%"
-            ]):
-                logger.info(f"yt-dlp: {line}")
+        # Построчное чтение stdout и stderr в реальном времени.
+        # Логируем важные строки для отладки пропусков и скачиваний.
+        import threading
 
-        stderr_output = process.stderr.read()
+        def log_stream(stream, prefix):
+            for line in stream:
+                line = line.strip()
+                if any(keyword in line for keyword in [
+                    "[download]", "Destination:", "ERROR", "WARNING", "100%",
+                    "Downloading item", "upload date", "has already been recorded",
+                    "Skipping", "not in range"
+                ]):
+                    logger.info(f"{prefix}: {line}")
+
+        stdout_thread = threading.Thread(target=log_stream, args=(process.stdout, "yt-dlp"))
+        stderr_thread = threading.Thread(target=log_stream, args=(process.stderr, "yt-dlp-err"))
+
+        stdout_thread.start()
+        stderr_thread.start()
+
+        stdout_thread.join()
+        stderr_thread.join()
         process.wait()
 
         if process.returncode != 0:
             logger.error(f"yt-dlp завершился с кодом {process.returncode}")
-            if stderr_output:
-                logger.error(f"yt-dlp stderr: {stderr_output}")
             return False
 
         # Подсчёт файлов в папке канала (для отчёта)
