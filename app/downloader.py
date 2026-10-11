@@ -79,11 +79,8 @@ def download_channel(
     cmd.extend(["--break-on-existing"])
     cmd.extend(["--break-per-input"])
 
-    # Временный флаг для отладки логирования
-    cmd.extend(["--verbose"])
-
-    # Обход n challenge и signature: только tv client + удалённые компоненты + PO Token
-    cmd.extend(["--extractor-args", f"youtube:player_client=tv;youtubepot-bgutilhttp:base_url={DIXTUNE_POT_PROVIDER_URL}"])
+    # Обход n challenge и signature: web_safari client + удалённые компоненты + PO Token
+    cmd.extend(["--extractor-args", f"youtube:player_client=web_safari;youtubepot-bgutilhttp:base_url={DIXTUNE_POT_PROVIDER_URL}"])
     cmd.extend(["--extractor-retries", "10"])
     cmd.extend(["--retries", "10"])
     cmd.extend(["--remote-components", "ejs:github"])
