@@ -19,7 +19,6 @@ DixTune — автоматический загрузчик аудио с YouTub
 - Basic Auth для защиты от несанкционированного доступа.
 - **Обход блокировок YouTube через ByeDPI** (опционально, для серверов в России).
 - **Поддержка Deno** для решения n challenge (автоматически устанавливается в Docker).
-- **Поддержка cookies** для обхода блокировок по IP (опционально).
 
 ## Быстрый старт (Prod)
 
@@ -189,22 +188,7 @@ sudo docker compose logs -f dixtune
 
 Для решения n challenge (защита YouTube от ботов) DixTune использует **Deno**. Deno автоматически устанавливается в Docker-образе, поэтому дополнительных действий не требуется.
 
-### Cookies (опционально)
-
-Если YouTube блокирует доступ по IP (даже с ByeDPI), можно использовать cookies браузера:
-
-1. Экспортируйте cookies из браузера в формате Netscape (например, через расширение "Get cookies.txt LOCALLY").
-2. Сохраните файл как `cookies.txt` в папке проекта.
-3. В `.env` укажите путь к файлу:
-   ```env
-   DIXTUNE_COOKIES=/app/cookies.txt
-   ```
-4. Перезапустите контейнер:
-   ```bash
-   cd /opt/dix/dixtune
-   sudo docker compose down
-   sudo docker compose up -d
-   ```
+Также `yt-dlp` использует флаг `--remote-components ejs:github` для загрузки скриптов-решателей с GitHub. Это происходит автоматически при первом запуске (скрипты кешируются).
 
 ### Обновление
 
@@ -336,7 +320,6 @@ dixtune/
 | `DIXTUNE_PASSWORD` | Пароль для Basic Auth | `admin123` |
 | `DIXTUNE_ROOT_PATH` | Путь, если приложение за прокси с подпутём | `` (пусто) |
 | `DIXTUNE_PROXY` | Прокси для yt-dlp (например, `socks5://byedpi:1081`) | `` (пусто) |
-| `DIXTUNE_COOKIES` | Путь к файлу cookies для yt-dlp (опционально) | `` (пусто) |
 
 ## Аутентификация
 

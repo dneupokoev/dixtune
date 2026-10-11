@@ -9,7 +9,6 @@ import logging.handlers
 import secrets
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
-from pathlib import Path
 
 from fastapi import FastAPI, Depends, HTTPException, Request, Response, status
 from fastapi.staticfiles import StaticFiles

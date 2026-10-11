@@ -3,7 +3,6 @@
 dv_file_version = '261010.01'
 """Модели данных SQLAlchemy."""
 
-from datetime import datetime, date
 from sqlalchemy import Column, Integer, String, Boolean, Date, DateTime
 from sqlalchemy.sql import func
 

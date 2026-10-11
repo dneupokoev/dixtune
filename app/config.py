@@ -30,7 +30,6 @@ DIXTUNE_ROOT_PATH = os.getenv("DIXTUNE_ROOT_PATH", "")
 
 # Настройки для обхода блокировок YouTube
 DIXTUNE_PROXY = os.getenv("DIXTUNE_PROXY", "")
-DIXTUNE_COOKIES = os.getenv("DIXTUNE_COOKIES", "")
 
 # Создаём папки при старте
 DATA_DIR.mkdir(parents=True, exist_ok=True)

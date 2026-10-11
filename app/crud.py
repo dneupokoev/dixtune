@@ -4,7 +4,7 @@ dv_file_version = '261010.01'
 """Операции CRUD для работы с БД."""
 
 import re
-from datetime import datetime, date
+from datetime import datetime
 from typing import List, Optional
 
 from sqlalchemy.orm import Session

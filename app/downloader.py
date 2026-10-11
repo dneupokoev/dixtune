@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # downloader.py
-dv_file_version = '261010.01'
+dv_file_version = '261011.01'
 """Логика скачивания аудио с YouTube через yt-dlp."""
 
 import subprocess
@@ -9,7 +9,7 @@ from pathlib import Path
 from datetime import date
 from typing import Optional
 
-from app.config import MUSIC_DIR, ARCHIVE_FILE, LOG_PATH, DIXTUNE_PROXY, DIXTUNE_COOKIES
+from app.config import MUSIC_DIR, ARCHIVE_FILE, DIXTUNE_PROXY
 from app.utils import ensure_directory
 
 logger = logging.getLogger("DixTune")
@@ -20,41 +20,58 @@ def download_channel(
     folder_name: str,
     min_date: Optional[date] = None
 ) -> bool:
-    """Скачать аудио с YouTube-канала через yt-dlp."""
+    """Скачать аудио с YouTube-канала через yt-dlp.
+
+    Args:
+        url: URL канала или плейлиста YouTube.
+        folder_name: Имя папки, в которую складывать файлы.
+        min_date: Минимальная дата публикации видео (не качать старше).
+
+    Returns:
+        True, если скачивание прошло успешно, иначе False.
+    """
     channel_dir = MUSIC_DIR / folder_name
     ensure_directory(channel_dir)
 
     # Формируем команду yt-dlp
-    # --audio-quality 128K можно изменить через переменную окружения (опционально)
     cmd = [
         "yt-dlp",
-        "-x",
-        "--audio-format", "mp3",
-        "--audio-quality", "128K",
-        "--sponsorblock-remove", "default",
-        "--download-archive", str(ARCHIVE_FILE),
-        "--no-overwrites",
-        "--ignore-errors",
+        "-x",                                    # Извлечь аудио
+        "--audio-format", "mp3",                 # Формат MP3
+        "--audio-quality", "128K",               # Битрейт 128 kbps
+        "--sponsorblock-remove", "default",      # Вырезать спонсорские вставки
+        "--download-archive", str(ARCHIVE_FILE), # Архив скачанных видео
+        "--no-overwrites",                       # Не перезаписывать существующие
+        "--ignore-errors",                       # Продолжать при ошибках
         "-o", str(channel_dir / "%(upload_date>%Y%m%d)s_%(title)s.%(ext)s"),
         url
     ]
 
+    # Фильтр по дате: не качать видео старше min_date
     if min_date:
-        # Преобразуем дату в формат YYYYMMDD для yt-dlp
         date_str = min_date.strftime("%Y%m%d")
         cmd.extend(["--dateafter", date_str])
+        # Останавливаться, как только встретится видео старше min_date.
+        # Экономит время, если видео идут в порядке от новых к старым.
+        cmd.extend(["--break-on-reject"])
 
-    # Добавляем настройки для обхода блокировок
+    # Ленивая обработка плейлиста: не получать весь список сразу
+    cmd.extend(["--lazy-playlist"])
+
+    # Обход блокировок: прокси (ByeDPI)
     if DIXTUNE_PROXY:
         cmd.extend(["--proxy", DIXTUNE_PROXY])
-    if DIXTUNE_COOKIES:
-        cmd.extend(["--cookies", DIXTUNE_COOKIES])
+
+    # Обход n challenge и signature: только tv client + удалённые компоненты
     cmd.extend(["--extractor-args", "youtube:player_client=tv"])
     cmd.extend(["--extractor-retries", "5"])
     cmd.extend(["--remote-components", "ejs:github"])
 
-    # Логируем команду перед запуском (без паролей)
-    safe_cmd = [arg for arg in cmd if not any(secret in arg for secret in [DIXTUNE_PROXY, DIXTUNE_COOKIES] if secret)]
+    # Логируем команду перед запуском (без секретов)
+    safe_cmd = [
+        arg for arg in cmd
+        if not any(secret and secret in arg for secret in [DIXTUNE_PROXY])
+    ]
     logger.info(f"Запуск yt-dlp: {' '.join(safe_cmd)}")
 
     try:
@@ -65,11 +82,13 @@ def download_channel(
             text=True
         )
 
-        # Построчное чтение вывода в реальном времени
+        # Построчное чтение вывода в реальном времени.
+        # Логируем только важные строки, чтобы не засорять лог.
         for line in process.stdout:
             line = line.strip()
-            # Логируем только важные строки: начало скачивания, прогресс, ошибки
-            if any(keyword in line for keyword in ["[download]", "Destination:", "ERROR", "WARNING", "100%"]):
+            if any(keyword in line for keyword in [
+                "[download]", "Destination:", "ERROR", "WARNING", "100%"
+            ]):
                 logger.info(f"yt-dlp: {line}")
 
         stderr_output = process.stderr.read()
@@ -81,7 +100,7 @@ def download_channel(
                 logger.error(f"yt-dlp stderr: {stderr_output}")
             return False
 
-        # Подсчёт новых файлов в папке канала
+        # Подсчёт файлов в папке канала (для отчёта)
         file_count = len(list(channel_dir.glob("*.mp3")))
         logger.info(f"Успешно обработан канал: {url}. Файлов в папке: {file_count}")
         return True
