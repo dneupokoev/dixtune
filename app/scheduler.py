@@ -15,13 +15,11 @@ from app.config import SYNC_INTERVAL_HOURS_MIN, SYNC_INTERVAL_HOURS_MAX
 from app.database import SessionLocal
 from app.crud import get_enabled_channels, update_last_checked
 from app.downloader import download_channel
+from app.state import stop_requested
 
 logger = logging.getLogger("DixTune")
 timezone = os.getenv("TZ", "Europe/Moscow")
 scheduler = BackgroundScheduler(timezone=timezone)
-
-# Глобальный флаг остановки синхронизации
-stop_requested = False
 
 
 def schedule_next_sync() -> None:
@@ -40,15 +38,15 @@ def schedule_next_sync() -> None:
 
 def sync_all_channels() -> None:
     """Синхронизировать все включённые каналы."""
-    global stop_requested
-    stop_requested = False
+    import app.state
+    app.state.stop_requested = False
     db = SessionLocal()
     try:
         channels = get_enabled_channels(db)
         logger.info(f"Запуск синхронизации {len(channels)} каналов")
 
         for channel in channels:
-            if stop_requested:
+            if app.state.stop_requested:
                 logger.info("Синхронизация остановлена по запросу пользователя")
                 break
             logger.info(f"Проверка канала: {channel.name or channel.url}")
@@ -63,7 +61,7 @@ def sync_all_channels() -> None:
         logger.error(f"Ошибка при синхронизации: {str(e)}")
     finally:
         db.close()
-        stop_requested = False
+        app.state.stop_requested = False
         schedule_next_sync()
 
 

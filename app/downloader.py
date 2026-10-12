@@ -17,13 +17,9 @@ from app.config import MUSIC_DIR, ARCHIVE_FILE, DIXTUNE_PROXY, DIXTUNE_COOKIES, 
 from app.utils import ensure_directory
 from app.database import SessionLocal
 from app import crud
+from app.state import current_process, stop_requested
 
 logger = logging.getLogger("DixTune")
-
-# Текущий процесс yt-dlp для возможности остановки
-current_process: Optional[subprocess.Popen] = None
-# Флаг остановки из scheduler
-from app.scheduler import stop_requested
 
 
 def stop_download() -> None:
@@ -32,10 +28,10 @@ def stop_download() -> None:
     Отправляет SIGINT всей группе процессов, что позволяет yt-dlp
     завершить текущий файл и корректно выйти.
     """
-    global current_process
-    if current_process and current_process.poll() is None:
+    import app.state
+    if app.state.current_process and app.state.current_process.poll() is None:
         try:
-            pgid = os.getpgid(current_process.pid)
+            pgid = os.getpgid(app.state.current_process.pid)
             os.killpg(pgid, signal.SIGINT)
             logger.info("Отправлен сигнал SIGINT группе процессов yt-dlp")
         except (ProcessLookupError, PermissionError) as e:
@@ -171,9 +167,9 @@ def download_channel(
     Returns:
         True, если скачивание прошло успешно, иначе False.
     """
-    global current_process, stop_requested
+    import app.state
 
-    if stop_requested:
+    if app.state.stop_requested:
         logger.info("Скачивание пропущено: запрошена остановка")
         return False
 
@@ -258,7 +254,7 @@ def download_channel(
             text=True,
             start_new_session=True
         )
-        current_process = process
+        app.state.current_process = process
 
         # Построчное чтение stdout и stderr в реальном времени.
         # Логируем важные строки для отладки пропусков и скачиваний.
@@ -286,7 +282,7 @@ def download_channel(
         stdout_thread.join()
         stderr_thread.join()
         process.wait()
-        current_process = None
+        app.state.current_process = None
 
         if process.returncode != 0:
             logger.error(f"yt-dlp завершился с кодом {process.returncode}")

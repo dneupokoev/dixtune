@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 from app import crud, schemas
 from app.database import get_db
 from app.config import MUSIC_DIR, DIXTUNE_COOKIES, LOG_PATH
+from app.state import stop_requested
 from pathlib import Path
 
 router = APIRouter(prefix="/ui", tags=["ui"])
@@ -189,11 +190,10 @@ def trigger_sync_submit(request: Request):
 @router.post("/sync/stop")
 def stop_sync_submit(request: Request):
     """Остановка текущей синхронизации."""
-    from app.scheduler import stop_requested
+    import app.state
     from app.downloader import stop_download
-    import app.scheduler
 
-    app.scheduler.stop_requested = True
+    app.state.stop_requested = True
     stop_download()
     return RedirectResponse(url=str(request.url_for("read_channels_ui")), status_code=303)
 
