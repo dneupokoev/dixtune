@@ -23,6 +23,9 @@ services:
     depends_on:
       - byedpi
       - bgutil-provider
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
     logging:
       driver: json-file
       options:
