@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # dxt_ui.py
-dv_file_version = '261012.08'
+dv_file_version = '261012.09'
 """Роутер для веб-интерфейса управления каналами DixTune."""
 
 from collections import deque
@@ -280,17 +280,23 @@ def delete_cookies_submit(request: Request):
 
 
 @router.get("/logs")
-def logs_page(request: Request):
-    """Страница с полным логом синхронизации."""
+def logs_page(request: Request, lines: int = 200):
+    """Страница с логом синхронизации."""
+    allowed_lines = [100, 200, 500, 1000]
+    if lines not in allowed_lines:
+        lines = 200
+
     log_lines: list[str] = []
     if LOG_PATH.exists():
         with open(LOG_PATH, "r", encoding="utf-8") as f:
-            log_lines = list(deque(f, maxlen=200))
+            log_lines = list(deque(f, maxlen=lines))
 
     return templates.TemplateResponse(
         request=request,
         name="logs.html",
         context={
-            "log_lines": log_lines
+            "log_lines": log_lines,
+            "current_lines": lines,
+            "allowed_lines": allowed_lines
         }
     )

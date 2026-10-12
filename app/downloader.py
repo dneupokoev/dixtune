@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # downloader.py
-dv_file_version = '261012.08'
+dv_file_version = '261012.10'
 """Логика скачивания аудио с YouTube через yt-dlp."""
 
 import subprocess
@@ -63,52 +63,69 @@ def fix_date_tag(file_path: Path) -> None:
         logger.error(f"Ошибка при исправлении тега date в {file_path.name}: {e}")
 
 
+def clean_one_filename(file_path: Path) -> Path:
+    """Очистить имя одного файла от повторяющихся подчёркиваний и лишних символов.
+
+    Args:
+        file_path: Путь к файлу.
+
+    Returns:
+        Новый путь к файлу после переименования.
+    """
+    original_name = file_path.name
+    # Схлопываем повторяющиеся подчёркивания
+    cleaned_name = re.sub(r'_+', '_', original_name)
+    # Замена полноширинных и «умных» символов на подчёркивание
+    cleaned_name = cleaned_name.replace('？', '_')  # полноширинный вопросительный знак (U+FF1F)
+    cleaned_name = cleaned_name.replace('｜', '_')  # полноширинная вертикальная черта (U+FF5C)
+    cleaned_name = cleaned_name.replace('：', '_')  # полноширинное двоеточие (U+FF1A)
+    cleaned_name = cleaned_name.replace('＊', '_')  # полноширинная звёздочка (U+FF0A)
+    cleaned_name = cleaned_name.replace('”', '_')   # правая двойная кавычка (U+201D)
+    cleaned_name = cleaned_name.replace('“', '_')   # левая двойная кавычка (U+201C)
+    cleaned_name = cleaned_name.replace('’', '_')   # правая одинарная кавычка (U+2019)
+    cleaned_name = cleaned_name.replace('‘', '_')   # левая одинарная кавычка (U+2018)
+    cleaned_name = cleaned_name.replace('／', '_')  # полноширинный слэш (U+FF0F)
+    cleaned_name = cleaned_name.replace('＼', '_')  # полноширинный обратный слэш (U+FF3C)
+    # Убираем подчёркивания в начале и конце имени
+    cleaned_name = cleaned_name.strip('_')
+
+    if cleaned_name == original_name:
+        return file_path
+
+    new_path = file_path.with_name(cleaned_name)
+    
+    # Защита от коллизии: если файл с таким именем уже есть —
+    # добавляем числовой суффикс
+    if new_path.exists() and new_path != file_path:
+        base = new_path.stem
+        suffix = new_path.suffix
+        counter = 1
+        while new_path.exists():
+            new_path = file_path.with_name(f"{base}_{counter}{suffix}")
+            counter += 1
+        logger.warning(
+            f"Коллизия имён: {original_name} -> {new_path.name} "
+            f"(добавлен суффикс)"
+        )
+    
+    try:
+        file_path.rename(new_path)
+        logger.info(f"Переименован файл: {original_name} -> {new_path.name}")
+    except OSError as e:
+        logger.error(f"Не удалось переименовать {original_name}: {e}")
+        return file_path
+    
+    return new_path
+
+
 def clean_filenames(channel_dir: Path) -> None:
-    """Очистить имена файлов от повторяющихся подчёркиваний и лишних символов.
+    """Очистить имена всех .mp3 в директории (для fallback).
 
     Args:
         channel_dir: Директория с файлами канала.
     """
     for file_path in channel_dir.glob("*.mp3"):
-        original_name = file_path.name
-        # Схлопываем повторяющиеся подчёркивания
-        cleaned_name = re.sub(r'_+', '_', original_name)
-        # Замена полноширинных и «умных» символов на подчёркивание
-        cleaned_name = cleaned_name.replace('？', '_')  # полноширинный вопросительный знак (U+FF1F)
-        cleaned_name = cleaned_name.replace('｜', '_')  # полноширинная вертикальная черта (U+FF5C)
-        cleaned_name = cleaned_name.replace('：', '_')  # полноширинное двоеточие (U+FF1A)
-        cleaned_name = cleaned_name.replace('＊', '_')  # полноширинная звёздочка (U+FF0A)
-        cleaned_name = cleaned_name.replace('”', '_')   # правая двойная кавычка (U+201D)
-        cleaned_name = cleaned_name.replace('“', '_')   # левая двойная кавычка (U+201C)
-        cleaned_name = cleaned_name.replace('’', '_')   # правая одинарная кавычка (U+2019)
-        cleaned_name = cleaned_name.replace('‘', '_')   # левая одинарная кавычка (U+2018)
-        cleaned_name = cleaned_name.replace('／', '_')  # полноширинный слэш (U+FF0F)
-        cleaned_name = cleaned_name.replace('＼', '_')  # полноширинный обратный слэш (U+FF3C)
-        # Убираем подчёркивания в начале и конце имени
-        cleaned_name = cleaned_name.strip('_')
-
-        if cleaned_name != original_name:
-            new_path = file_path.with_name(cleaned_name)
-            
-            # Защита от коллизии: если файл с таким именем уже есть —
-            # добавляем числовой суффикс
-            if new_path.exists() and new_path != file_path:
-                base = new_path.stem
-                suffix = new_path.suffix
-                counter = 1
-                while new_path.exists():
-                    new_path = file_path.with_name(f"{base}_{counter}{suffix}")
-                    counter += 1
-                logger.warning(
-                    f"Коллизия имён: {original_name} -> {new_path.name} "
-                    f"(добавлен суффикс)"
-                )
-            
-            try:
-                file_path.rename(new_path)
-                logger.info(f"Переименован файл: {original_name} -> {new_path.name}")
-            except OSError as e:
-                logger.error(f"Не удалось переименовать {original_name}: {e}")
+        clean_one_filename(file_path)
 
 
 def check_and_retry(
@@ -206,6 +223,10 @@ def download_channel(
     if "youtube.com/@" in url and not url.endswith("/videos"):
         url = url.rstrip("/") + "/videos"
 
+    # Снимок состояния папки ДО скачивания
+    mp3_before = set(channel_dir.glob("*.mp3"))
+    mp3_before_count = len(mp3_before)
+
     # Формируем команду yt-dlp
     cmd = [
         "yt-dlp",
@@ -264,6 +285,13 @@ def download_channel(
     cmd.extend(["--retries", "3"])
     cmd.extend(["--remote-components", "ejs:github"])
 
+    # Постобработка каждого файла сразу после скачивания.
+    # after_move — срабатывает после перемещения файла в целевую директорию.
+    # Прерывание синхронизации больше не оставляет "сырые" файлы.
+    cmd.extend([
+        "--exec", "after_move:python -m app.postprocess %(filepath)q"
+    ])
+
     # Логируем команду перед запуском (без секретов)
     safe_cmd = [
         arg for arg in cmd
@@ -307,42 +335,62 @@ def download_channel(
         process.wait()
         app.state.current_process = None
 
-        if process.returncode != 0:
-            logger.error(f"yt-dlp завершился с кодом {process.returncode}")
-            error_msg = f"yt-dlp завершился с кодом {process.returncode}"
-            if stderr_lines:
-                error_msg += "\n" + "\n".join(stderr_lines[-10:])
-            db = SessionLocal()
-            try:
-                crud.create_sync_log(db, channel_id, "error", error_msg)
-            finally:
-                db.close()
-            # Очистка имён файлов от запрещённых символов и лишних подчёркиваний
-            clean_filenames(channel_dir)
-
-            # Исправление тега date в MP3 файлах (YYYYMMDD -> YYYYMM)
-            for mp3_file in channel_dir.glob("*.mp3"):
-                fix_date_tag(mp3_file)
-
-            # Проверка и повторное скачивание для orphan .webm файлов
-            check_and_retry(
-                channel_dir, url, folder_name, min_date, channel_id,
-                recursion_depth=_depth
-            )
-            return False
-
-        # Очистка имён файлов от запрещённых символов и лишних подчёркиваний
+        # FALLBACK: если --exec не сработал для некоторых файлов,
+        # обрабатываем оставшиеся пачкой. Это защита на случай старых версий
+        # yt-dlp или сбоя --exec.
         clean_filenames(channel_dir)
-
-        # Исправление тега date в MP3 файлах (YYYYMMDD -> YYYYMM)
         for mp3_file in channel_dir.glob("*.mp3"):
             fix_date_tag(mp3_file)
+
+        # Снимок состояния папки ПОСЛЕ обработки
+        mp3_after = set(channel_dir.glob("*.mp3"))
+        mp3_after_count = len(mp3_after)
+        mp3_new_count = mp3_after_count - mp3_before_count
+
+        if process.returncode != 0:
+            if mp3_new_count > 0:
+                # Частичный успех: что-то скачалось, несмотря на код возврата
+                logger.warning(
+                    f"yt-dlp завершился с кодом {process.returncode}, "
+                    f"но скачано {mp3_new_count} новых файлов. Считаем успехом."
+                )
+                # Записываем в лог как success с пометкой
+                db = SessionLocal()
+                try:
+                    crud.create_sync_log(
+                        db, channel_id, "success",
+                        f"Скачано файлов: {mp3_after_count} (+{mp3_new_count} новых, "
+                        f"yt-dlp код {process.returncode})"
+                    )
+                finally:
+                    db.close()
+                # НЕ вызываем check_and_retry — файлы появились, всё ок
+                return True
+            else:
+                # Настоящая ошибка: ни одного нового файла
+                logger.error(f"yt-dlp завершился с кодом {process.returncode}, "
+                             f"новых файлов нет")
+                error_msg = f"yt-dlp завершился с кодом {process.returncode}"
+                if stderr_lines:
+                    error_msg += "\n" + "\n".join(stderr_lines[-10:])
+                db = SessionLocal()
+                try:
+                    crud.create_sync_log(db, channel_id, "error", error_msg)
+                finally:
+                    db.close()
+
+                # Проверка и повторное скачивание для orphan .webm файлов
+                check_and_retry(
+                    channel_dir, url, folder_name, min_date, channel_id,
+                    recursion_depth=_depth
+                )
+                return False
 
         # check_and_retry не нужен: при успешном завершении
         # orphan .webm файлов не бывает
 
         # Подсчёт файлов в папке канала (для отчёта)
-        file_count = len(list(channel_dir.glob("*.mp3")))
+        file_count = mp3_after_count
         logger.info(f"Успешно обработан канал: {url}. Файлов в папке: {file_count}")
         db = SessionLocal()
         try:

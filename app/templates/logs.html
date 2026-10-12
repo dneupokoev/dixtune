@@ -3,13 +3,60 @@
 {% block title %}Логи - DixTune{% endblock %}
 
 {% block content %}
-<h2>Логи синхронизации (последние 200 строк)</h2>
+<h2>Логи синхронизации</h2>
+
+<div class="logs-controls">
+    <label for="lines-select">Показать строк:</label>
+    <select id="lines-select" onchange="location.href='?lines='+this.value">
+        {% for n in allowed_lines %}
+        <option value="{{ n }}"{% if n == current_lines %} selected{% endif %}>{{ n }}</option>
+        {% endfor %}
+    </select>
+
+    <button type="button" id="copy-btn" onclick="copyLogs()">📋 Копировать в буфер</button>
+
+    <label>
+        <input type="checkbox" id="auto-refresh" onchange="toggleAutoRefresh(this)">
+        Автообновление (5 сек)
+    </label>
+</div>
+
 {% if log_lines %}
-<div class="log-viewer">
+<div class="log-viewer" id="log-viewer">
 {% for line in log_lines %}{{ line }}
 {% endfor %}
 </div>
 {% else %}
 <p>Файл логов не найден или пуст.</p>
 {% endif %}
+
+<script>
+function copyLogs() {
+    const el = document.getElementById('log-viewer');
+    if (!el) {
+        alert('Нет логов для копирования');
+        return;
+    }
+    const text = el.innerText;
+    navigator.clipboard.writeText(text).then(() => {
+        const btn = document.getElementById('copy-btn');
+        const original = btn.innerText;
+        btn.innerText = '✅ Скопировано';
+        setTimeout(() => { btn.innerText = original; }, 2000);
+    }).catch(err => {
+        alert('Не удалось скопировать: ' + err);
+    });
+}
+
+let refreshInterval = null;
+
+function toggleAutoRefresh(checkbox) {
+    if (checkbox.checked) {
+        refreshInterval = setInterval(() => location.reload(), 5000);
+    } else {
+        clearInterval(refreshInterval);
+        refreshInterval = null;
+    }
+}
+</script>
 {% endblock %}
