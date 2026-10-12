@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # state.py
-dv_file_version = '261012.04'
+dv_file_version = '261012.05'
 """Общее состояние приложения для предотвращения циклических импортов."""
 
 import subprocess
@@ -10,3 +10,5 @@ from typing import Optional
 current_process: Optional[subprocess.Popen] = None
 # Флаг остановки синхронизации
 stop_requested = False
+# Флаг активной синхронизации
+is_syncing = False

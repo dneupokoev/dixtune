@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
 # utils.py
-dv_file_version = '261010.01'
+dv_file_version = '261012.02'
 """Вспомогательные функции для DixTune."""
 
 import re
+from datetime import datetime, timezone
 from pathlib import Path
 
 TRANSLIT_MAP = {
@@ -52,3 +53,11 @@ def sanitize_filename(name: str) -> str:
 def ensure_directory(path: Path) -> None:
     """Создать директорию, если она не существует."""
     path.mkdir(parents=True, exist_ok=True)
+
+
+def utcnow() -> datetime:
+    """Получить текущее UTC-время как naive datetime.
+
+    Совместимо с Python 3.12+, где datetime.utcnow() deprecated.
+    """
+    return datetime.now(timezone.utc).replace(tzinfo=None)

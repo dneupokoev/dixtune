@@ -26,16 +26,22 @@
     <a href="{{ url_for('create_channel_form') }}" class="btn btn-primary">
         <span class="btn-icon">➕</span> Добавить канал
     </a>
-    <form action="{{ url_for('trigger_sync_submit') }}" method="post" style="display:inline;">
-        <button type="submit" class="btn btn-success">
-            <span class="btn-icon">🔄</span> Синхронизировать все
-        </button>
-    </form>
+    {% if is_syncing %}
+    <div class="sync-status-indicator">
+        <span class="btn-icon">⏳</span> Синхронизация идёт...
+    </div>
     <form action="{{ url_for('stop_sync_submit') }}" method="post" style="display:inline;">
         <button type="submit" class="btn btn-danger">
             <span class="btn-icon">⏹️</span> Остановить синхронизацию
         </button>
     </form>
+    {% else %}
+    <form action="{{ url_for('trigger_sync_submit') }}" method="post" style="display:inline;">
+        <button type="submit" class="btn btn-success">
+            <span class="btn-icon">🔄</span> Синхронизировать все
+        </button>
+    </form>
+    {% endif %}
     <a href="{{ url_for('logs_page') }}" class="btn btn-secondary">
         <span class="btn-icon">📋</span> Логи
     </a>
@@ -106,4 +112,29 @@
     <p>Нет записей в журнале.</p>
     {% endif %}
 </div>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const syncStatusUrl = "{{ url_for('get_sync_status') }}";
+        const actionsBar = document.querySelector('.actions-bar');
+
+        setInterval(async function() {
+            try {
+                const response = await fetch(syncStatusUrl);
+                const data = await response.json();
+                
+                if (data.is_syncing) {
+                    if (!actionsBar.querySelector('.sync-status-indicator')) {
+                        location.reload();
+                    }
+                } else {
+                    if (actionsBar.querySelector('.sync-status-indicator')) {
+                        location.reload();
+                    }
+                }
+            } catch (error) {
+                console.error('Ошибка при опросе статуса синхронизации:', error);
+            }
+        }, 5000);
+    });
+</script>
 {% endblock %}

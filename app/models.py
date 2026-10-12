@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
 # models.py
-dv_file_version = '261010.01'
+dv_file_version = '261012.03'
 """Модели данных SQLAlchemy."""
 
 from sqlalchemy import Column, Integer, String, Boolean, Date, DateTime, Text
-from sqlalchemy.sql import func
 
 from app.database import Base
+from app.utils import utcnow
 
 
 class Channel(Base):
@@ -22,7 +22,7 @@ class Channel(Base):
     enabled = Column(Boolean, default=True)
     transliterate = Column(Boolean, default=False)
     last_checked = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, default=func.now())
+    created_at = Column(DateTime, default=utcnow)
 
 
 class SyncLog(Base):
@@ -34,4 +34,4 @@ class SyncLog(Base):
     channel_id = Column(Integer, nullable=True)
     status = Column(String, nullable=False)
     message = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=func.now())
+    created_at = Column(DateTime, default=utcnow)

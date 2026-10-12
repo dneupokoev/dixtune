@@ -1,16 +1,16 @@
 # -*- coding: utf-8 -*-
 # crud.py
-dv_file_version = '261012.01'
+dv_file_version = '261012.05'
 """Операции CRUD для работы с БД."""
 
 import re
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import List, Optional, Dict
 
 from sqlalchemy.orm import Session
 
 from app import models, schemas
-from app.utils import sanitize_filename, transliterate
+from app.utils import sanitize_filename, transliterate, utcnow
 
 
 def get_channels(db: Session) -> List[models.Channel]:
@@ -95,7 +95,7 @@ def update_last_checked(db: Session, channel_id: int) -> None:
     """Обновить время последней проверки канала."""
     db_channel = get_channel(db, channel_id)
     if db_channel:
-        db_channel.last_checked = datetime.now()
+        db_channel.last_checked = utcnow()
         db.commit()
 
 
@@ -118,8 +118,8 @@ def get_last_sync_logs(db: Session, limit: int = 10) -> List[models.SyncLog]:
 
 
 def get_sync_stats(db: Session) -> Dict[str, int]:
-    """Получить статистику синхронизации за последние 24 часа."""
-    since = datetime.now() - timedelta(hours=24)
+    """Получить статистику синхронизации за последние 24 часа (UTC)."""
+    since = utcnow() - timedelta(hours=24)
     
     success_count = db.query(models.SyncLog).filter(
         models.SyncLog.created_at >= since,

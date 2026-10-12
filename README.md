@@ -170,7 +170,7 @@ sudo docker compose up -d
 
 ### Просмотр логов
 
-Логи синхронизации доступны по адресу `/ui/logs`. Можно выбрать количество строк (100, 200, 500, 1000) и скопировать их в буфер обмена.
+Логи синхронизации доступны по адресу `/ui/logs`. Отображаются последние 200 строк.
 
 ### Остановка синхронизации
 
@@ -235,6 +235,8 @@ sudo docker compose logs -f dixtune
 
 Также `yt-dlp` использует флаг `--remote-components ejs:github` для загрузки скриптов-решателей с GitHub. Это происходит автоматически при первом запуске (скрипты кешируются).
 
+**Примечание:** для обхода блокировок и решения n challenge используется клиент `mweb` (мобильная версия YouTube). В сочетании с флагом `--remote-components ejs:github` и PO Token Provider (bgutil) это даёт стабильное скачивание даже при блокировках DPI.
+
 ### PO Token Provider (bgutil)
 
 Для обхода защиты YouTube (PO Token) DixTune использует **bgutil-provider**. Это отдельный сервис, который автоматически генерирует PO Token для `yt-dlp`.
@@ -248,8 +250,11 @@ sudo docker compose logs -f dixtune
 1. Установите расширение «Get cookies.txt LOCALLY» в браузере.
 2. Зайдите на YouTube, авторизуйтесь.
 3. Экспортируйте cookies и сохраните файл как `cookies.txt`.
-4. Загрузите файл через веб-интерфейс: `https://klml.ru/dixtune/ui/settings/cookies`.
+4. Загрузите файл через веб-интерфейс: `http://<ваш-сервер>:8020/ui/settings/cookies`.
 5. Cookies будут сохранены в `/data/cookies.txt` и использованы при следующей синхронизации.
+
+> **Примечание:** путь к файлу cookies задаётся переменной `DIXTUNE_COOKIES`.
+> Если она пустая, форма cookies вернёт редирект без ошибки — файл не будет создан.
 
 ### Обновление
 
@@ -297,6 +302,9 @@ docker run -d \
 
 ## Локальная разработка (без Docker)
 
+0. Убедитесь, что установлен Python 3.10 или новее.
+   Проект использует современный синтаксис аннотаций типов.
+
 1. Клонируйте репозиторий:
 
 ```bash
@@ -334,7 +342,7 @@ dixtune/
 │   ├── downloader.py       # Логика скачивания через yt-dlp
 │   ├── scheduler.py        # Планировщик APScheduler
 │   ├── ui.py               # Роутер для веб-интерфейса (/ui)
-│   ├── utils.py            # Вспомогательные функции (sanitize_filename, transliterate, ensure_directory)
+│   ├── utils.py            # Вспомогательные функции (sanitize_filename, transliterate, ensure_directory, utcnow)
 │   ├── static/             # CSS, favicon
 │   │   └── style.css
 │   └── templates/          # Jinja2-шаблоны
@@ -374,6 +382,10 @@ dixtune/
 - `GET /ui` — веб-интерфейс
 - `GET /ui/logs` — логи синхронизации
 - `POST /ui/sync/stop` — остановить синхронизацию
+- `GET /ui/sync/status` — статус синхронизации (JSON)
+- `GET /ui/settings/cookies` — страница cookies
+- `POST /ui/settings/cookies` — сохранить cookies
+- `POST /ui/settings/cookies/delete` — удалить cookies
 
 ## Переменные окружения
 
@@ -432,6 +444,15 @@ curl -u admin:admin123 http://localhost:8020/status
 - Расписание — в `scheduler.py`.
 - UI — в `ui.py` и шаблонах.
 - Перед коммитом: проверить, что приложение запускается локально.
+- **Временные метки**: все даты создаются через `utcnow()` из `app/utils.py`.
+  Не использовать `datetime.utcnow()` (deprecated в Python 3.12) и `func.now()`.
+  Все метки в БД — naive UTC.
+- **Рекурсия при скачивании**: лимит задан константой `MAX_RETRY_DEPTH`
+  в `downloader.py`. При превышении — рекурсия останавливается.
+- **Обработка ошибок БД**: `IntegrityError` (дублирование URL) перехватывается
+  в `main.py` (API возвращает 409) и в `ui.py` (редирект с ?error=duplicate_url).
+- **Cookies**: если `DIXTUNE_COOKIES` пустой, функции в `ui.py` работают
+  без ошибок (проверка `if not DIXTUNE_COOKIES`).
 
 ## Лицензия
 

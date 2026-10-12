@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # main.py
-dv_file_version = '261010.01'
 """Точка входа FastAPI-приложения DixTune."""
+dv_file_version = '261012.03'
 
 import base64
 import logging
@@ -10,11 +10,12 @@ import secrets
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 
-from fastapi import FastAPI, Depends, HTTPException, Request, Response, status
+from fastapi import FastAPI, Depends, HTTPException, Request, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import RedirectResponse
 from sqlalchemy import text
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 
 from app import models, schemas, crud
 from app.database import engine, Base, get_db
@@ -126,13 +127,21 @@ def read_channels(db: Session = Depends(get_db)):
 @app.post("/channels", response_model=schemas.ChannelResponse)
 def create_channel(channel: schemas.ChannelCreate, db: Session = Depends(get_db)):
     """Добавить новый канал."""
-    return crud.create_channel(db, channel)
+    try:
+        return crud.create_channel(db, channel)
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Канал с таким URL уже существует")
 
 
 @app.put("/channels/{channel_id}", response_model=schemas.ChannelResponse)
 def update_channel(channel_id: int, channel_update: schemas.ChannelUpdate, db: Session = Depends(get_db)):
     """Обновить данные канала."""
-    db_channel = crud.update_channel(db, channel_id, channel_update)
+    try:
+        db_channel = crud.update_channel(db, channel_id, channel_update)
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Канал с таким URL уже существует")
     if not db_channel:
         raise HTTPException(status_code=404, detail="Канал не найден")
     return db_channel
@@ -157,11 +166,12 @@ def check_channel(channel_id: int, db: Session = Depends(get_db)):
     success = download_channel(
         url=channel.url,
         folder_name=channel.folder_name,
-        min_date=channel.min_date
+        min_date=channel.min_date,
+        channel_id=channel_id
     )
-    crud.update_last_checked(db, channel_id)
-
-    if not success:
+    if success:
+        crud.update_last_checked(db, channel_id)
+    else:
         raise HTTPException(status_code=500, detail="Ошибка при скачивании")
     return {"detail": "Канал проверен"}
 

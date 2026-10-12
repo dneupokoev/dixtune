@@ -33,7 +33,7 @@ DIXTUNE_ROOT_PATH = os.getenv("DIXTUNE_ROOT_PATH", "")
 DIXTUNE_PROXY = os.getenv("DIXTUNE_PROXY", "")
 
 # Путь к файлу cookies для yt-dlp
-DIXTUNE_COOKIES = os.getenv("DIXTUNE_COOKIES", str(DATA_DIR / "cookies.txt"))
+DIXTUNE_COOKIES = os.getenv("DIXTUNE_COOKIES", "")
 
 # URL PO Token Provider (bgutil)
 DIXTUNE_POT_PROVIDER_URL = os.getenv("DIXTUNE_POT_PROVIDER_URL", "http://bgutil-provider:4416")

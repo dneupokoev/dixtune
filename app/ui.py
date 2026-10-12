@@ -1,21 +1,22 @@
 # -*- coding: utf-8 -*-
 # dxt_ui.py
-dv_file_version = '261012.04'
+dv_file_version = '261012.08'
 """Роутер для веб-интерфейса управления каналами DixTune."""
 
 from collections import deque
 from datetime import date
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Request, Form
-from fastapi.responses import RedirectResponse
+from fastapi import APIRouter, Depends, Request, Form, BackgroundTasks
+from fastapi.responses import RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 
 from app import crud, schemas
 from app.database import get_db
 from app.config import MUSIC_DIR, DIXTUNE_COOKIES, LOG_PATH
-from app.state import stop_requested
+import app.state
 from pathlib import Path
 
 router = APIRouter(prefix="/ui", tags=["ui"])
@@ -80,7 +81,8 @@ def read_channels_ui(request: Request, db: Session = Depends(get_db)):
             "status": status,
             "last_logs": last_logs,
             "stats": stats,
-            "channel_stats": channel_stats
+            "channel_stats": channel_stats,
+            "is_syncing": app.state.is_syncing
         }
     )
 
@@ -114,7 +116,14 @@ def create_channel_submit(
         min_date=min_date,
         transliterate=transliterate
     )
-    crud.create_channel(db, channel_create)
+    try:
+        crud.create_channel(db, channel_create)
+    except IntegrityError:
+        db.rollback()
+        return RedirectResponse(
+            url=str(request.url_for("create_channel_form")) + "?error=duplicate_url",
+            status_code=303
+        )
     return RedirectResponse(url=str(request.url_for("read_channels_ui")), status_code=303)
 
 
@@ -152,7 +161,14 @@ def edit_channel_submit(
         min_date=min_date,
         enabled=enabled
     )
-    crud.update_channel(db, channel_id, channel_update)
+    try:
+        crud.update_channel(db, channel_id, channel_update)
+    except IntegrityError:
+        db.rollback()
+        return RedirectResponse(
+            url=str(request.url_for("edit_channel_form", channel_id=channel_id)) + "?error=duplicate_url",
+            status_code=303
+        )
     return RedirectResponse(url=str(request.url_for("read_channels_ui")), status_code=303)
 
 
@@ -169,28 +185,40 @@ def check_channel_submit(channel_id: int, request: Request, db: Session = Depend
     channel = crud.get_channel(db, channel_id)
     if channel:
         from app.downloader import download_channel
-        download_channel(
+        success = download_channel(
             url=channel.url,
             folder_name=channel.folder_name,
             min_date=channel.min_date,
             channel_id=channel_id
         )
-        crud.update_last_checked(db, channel_id)
+        if success:
+            crud.update_last_checked(db, channel_id)
+            return RedirectResponse(
+                url=str(request.url_for("read_channels_ui")),
+                status_code=303
+            )
+        else:
+            return RedirectResponse(
+                url=str(request.url_for("read_channels_ui")) + "?error=download_failed",
+                status_code=303
+            )
     return RedirectResponse(url=str(request.url_for("read_channels_ui")), status_code=303)
 
 
 @router.post("/sync")
-def trigger_sync_submit(request: Request):
-    """Запуск синхронизации всех включённых каналов."""
+def trigger_sync_submit(request: Request, background_tasks: BackgroundTasks):
+    """Запуск синхронизации всех включённых каналов в фоне."""
+    if app.state.is_syncing:
+        return RedirectResponse(url=str(request.url_for("read_channels_ui")), status_code=303)
+
     from app.scheduler import sync_all_channels
-    sync_all_channels()
+    background_tasks.add_task(sync_all_channels)
     return RedirectResponse(url=str(request.url_for("read_channels_ui")), status_code=303)
 
 
 @router.post("/sync/stop")
 def stop_sync_submit(request: Request):
     """Остановка текущей синхронизации."""
-    import app.state
     from app.downloader import stop_download
 
     app.state.stop_requested = True
@@ -198,18 +226,24 @@ def stop_sync_submit(request: Request):
     return RedirectResponse(url=str(request.url_for("read_channels_ui")), status_code=303)
 
 
+@router.get("/sync/status")
+def get_sync_status():
+    """Получить статус синхронизации в формате JSON."""
+    return JSONResponse(content={"is_syncing": app.state.is_syncing})
+
+
 @router.get("/settings/cookies")
 def cookies_form(request: Request):
     """Страница управления cookies для YouTube."""
-    cookies_path = Path(DIXTUNE_COOKIES)
-    cookies_exist = cookies_path.exists()
+    cookies_path = Path(DIXTUNE_COOKIES) if DIXTUNE_COOKIES else None
+    cookies_exist = cookies_path.exists() if cookies_path else False
     
     return templates.TemplateResponse(
         request=request,
         name="cookies_form.html",
         context={
             "cookies_exist": cookies_exist,
-            "cookies_path": str(cookies_path)
+            "cookies_path": str(cookies_path) if cookies_path else "(не задан)"
         }
     )
 
@@ -220,6 +254,9 @@ def save_cookies_submit(
         cookies_content: str = Form(...)
 ):
     """Сохранение содержимого cookies в файл."""
+    if not DIXTUNE_COOKIES:
+        return RedirectResponse(url=str(request.url_for("cookies_form")), status_code=303)
+
     cookies_path = Path(DIXTUNE_COOKIES)
     cookies_path.parent.mkdir(parents=True, exist_ok=True)
     
@@ -232,6 +269,9 @@ def save_cookies_submit(
 @router.post("/settings/cookies/delete")
 def delete_cookies_submit(request: Request):
     """Удаление файла cookies."""
+    if not DIXTUNE_COOKIES:
+        return RedirectResponse(url=str(request.url_for("cookies_form")), status_code=303)
+
     cookies_path = Path(DIXTUNE_COOKIES)
     if cookies_path.exists():
         cookies_path.unlink()

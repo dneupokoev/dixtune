@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # scheduler.py
-dv_file_version = '261012.04'
+dv_file_version = '261012.07'
 """Планировщик периодических задач APScheduler."""
 
 import logging
@@ -15,11 +15,11 @@ from app.config import SYNC_INTERVAL_HOURS_MIN, SYNC_INTERVAL_HOURS_MAX
 from app.database import SessionLocal
 from app.crud import get_enabled_channels, update_last_checked
 from app.downloader import download_channel
-from app.state import stop_requested
+import app.state
 
 logger = logging.getLogger("DixTune")
-timezone = os.getenv("TZ", "Europe/Moscow")
-scheduler = BackgroundScheduler(timezone=timezone)
+tz_string = os.getenv("TZ", "Europe/Moscow")
+scheduler = BackgroundScheduler(timezone=tz_string)
 
 
 def schedule_next_sync() -> None:
@@ -38,7 +38,11 @@ def schedule_next_sync() -> None:
 
 def sync_all_channels() -> None:
     """Синхронизировать все включённые каналы."""
-    import app.state
+    if app.state.is_syncing:
+        logger.info("Синхронизация уже идёт")
+        return
+
+    app.state.is_syncing = True
     app.state.stop_requested = False
     db = SessionLocal()
     try:
@@ -53,15 +57,21 @@ def sync_all_channels() -> None:
             success = download_channel(
                 url=channel.url,
                 folder_name=channel.folder_name,
-                min_date=channel.min_date
+                min_date=channel.min_date,
+                channel_id=channel.id
             )
-            update_last_checked(db, channel.id)
+            if success:
+                update_last_checked(db, channel.id)
+            else:
+                logger.warning(f"Канал {channel.name or channel.url} не обновлён "
+                               f"из-за ошибки скачивания")
 
     except Exception as e:
         logger.error(f"Ошибка при синхронизации: {str(e)}")
     finally:
         db.close()
         app.state.stop_requested = False
+        app.state.is_syncing = False
         schedule_next_sync()
 
 

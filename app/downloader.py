@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # downloader.py
-dv_file_version = '261012.04'
+dv_file_version = '261012.08'
 """Логика скачивания аудио с YouTube через yt-dlp."""
 
 import subprocess
@@ -8,6 +8,7 @@ import logging
 import re
 import os
 import signal
+import threading
 from pathlib import Path
 from datetime import date
 from typing import Optional
@@ -20,6 +21,7 @@ from app import crud
 from app.state import current_process, stop_requested
 
 logger = logging.getLogger("DixTune")
+MAX_RETRY_DEPTH = 3
 
 
 def stop_download() -> None:
@@ -87,9 +89,24 @@ def clean_filenames(channel_dir: Path) -> None:
 
         if cleaned_name != original_name:
             new_path = file_path.with_name(cleaned_name)
+            
+            # Защита от коллизии: если файл с таким именем уже есть —
+            # добавляем числовой суффикс
+            if new_path.exists() and new_path != file_path:
+                base = new_path.stem
+                suffix = new_path.suffix
+                counter = 1
+                while new_path.exists():
+                    new_path = file_path.with_name(f"{base}_{counter}{suffix}")
+                    counter += 1
+                logger.warning(
+                    f"Коллизия имён: {original_name} -> {new_path.name} "
+                    f"(добавлен суффикс)"
+                )
+            
             try:
                 file_path.rename(new_path)
-                logger.info(f"Переименован файл: {original_name} -> {cleaned_name}")
+                logger.info(f"Переименован файл: {original_name} -> {new_path.name}")
             except OSError as e:
                 logger.error(f"Не удалось переименовать {original_name}: {e}")
 
@@ -100,7 +117,7 @@ def check_and_retry(
     folder_name: str,
     min_date: Optional[date],
     channel_id: Optional[int],
-    max_retries: int = 3
+    recursion_depth: int = 0,
 ) -> None:
     """Проверить наличие .webm без .mp3 и повторить скачивание.
 
@@ -110,51 +127,51 @@ def check_and_retry(
         folder_name: Имя папки, в которую складывать файлы.
         min_date: Минимальная дата публикации видео.
         channel_id: ID канала для записи в журнал.
-        max_retries: Максимальное количество повторных попыток.
+        recursion_depth: Текущая глубина рекурсии.
     """
-    retry_count = 0
-    while retry_count < max_retries:
-        # Найти все .webm файлы, для которых нет соответствующего .mp3
-        orphan_webm_files = []
-        for webm_file in channel_dir.glob("*.webm"):
-            mp3_file = webm_file.with_suffix(".mp3")
-            if not mp3_file.exists():
-                orphan_webm_files.append(webm_file)
-
-        if not orphan_webm_files:
-            break
-
+    if recursion_depth >= MAX_RETRY_DEPTH:
         logger.warning(
-            f"Найдено {len(orphan_webm_files)} файлов .webm без .mp3. "
-            f"Попытка повторного скачивания {retry_count + 1}/{max_retries}"
+            f"Достигнута максимальная глубина рекурсии "
+            f"({MAX_RETRY_DEPTH}) для канала {url}. Прекращаю попытки."
         )
+        return
 
-        # Удалить ID из архива для этих файлов, чтобы yt-dlp снова их обработал
-        # yt-dlp использует ID видео в архиве. Имя файла .webm содержит ID в формате:
-        # <video_id>.<ext> или <title>.<video_id>.<ext>
-        # Мы удаляем сам .webm файл, чтобы yt-dlp не считал его уже скачанным
-        for webm_file in orphan_webm_files:
-            try:
-                webm_file.unlink()
-                logger.info(f"Удалён orphan .webm файл: {webm_file.name}")
-            except OSError as e:
-                logger.error(f"Не удалось удалить {webm_file.name}: {e}")
+    # Найти все .webm файлы, для которых нет соответствующего .mp3
+    orphan_webm_files = []
+    for webm_file in channel_dir.glob("*.webm"):
+        mp3_file = webm_file.with_suffix(".mp3")
+        if not mp3_file.exists():
+            orphan_webm_files.append(webm_file)
 
-        # Повторный запуск download_channel
-        retry_count += 1
-        download_channel(url, folder_name, min_date, channel_id)
+    if not orphan_webm_files:
+        return
 
-    if retry_count >= max_retries:
-        logger.warning(
-            f"Достигнут максимум повторных попыток ({max_retries}) для канала {url}"
-        )
+    logger.warning(
+        f"Найдено {len(orphan_webm_files)} файлов .webm без .mp3. "
+        f"Глубина рекурсии: {recursion_depth + 1}/{MAX_RETRY_DEPTH}"
+    )
+
+    # Удалить ID из архива для этих файлов, чтобы yt-dlp снова их обработал
+    # yt-dlp использует ID видео в архиве. Имя файла .webm содержит ID в формате:
+    # <video_id>.<ext> или <title>.<video_id>.<ext>
+    # Мы удаляем сам .webm файл, чтобы yt-dlp не считал его уже скачанным
+    for webm_file in orphan_webm_files:
+        try:
+            webm_file.unlink()
+            logger.info(f"Удалён orphan .webm файл: {webm_file.name}")
+        except OSError as e:
+            logger.error(f"Не удалось удалить {webm_file.name}: {e}")
+
+    # Повторный запуск download_channel с увеличенной глубиной
+    download_channel(url, folder_name, min_date, channel_id, _depth=recursion_depth + 1)
 
 
 def download_channel(
     url: str,
     folder_name: str,
     min_date: Optional[date] = None,
-    channel_id: Optional[int] = None
+    channel_id: Optional[int] = None,
+    _depth: int = 0
 ) -> bool:
     """Скачать аудио с YouTube-канала через yt-dlp.
 
@@ -163,11 +180,19 @@ def download_channel(
         folder_name: Имя папки, в которую складывать файлы.
         min_date: Минимальная дата публикации видео (не качать старше).
         channel_id: ID канала для записи в журнал.
+        _depth: Текущая глубина рекурсии для защиты от бесконечного цикла.
 
     Returns:
         True, если скачивание прошло успешно, иначе False.
     """
     import app.state
+
+    if _depth >= MAX_RETRY_DEPTH:
+        logger.warning(
+            f"Достигнута максимальная глубина рекурсии "
+            f"({MAX_RETRY_DEPTH}) для {url}"
+        )
+        return False
 
     if app.state.stop_requested:
         logger.info("Скачивание пропущено: запрошена остановка")
@@ -232,7 +257,7 @@ def download_channel(
     cmd.extend(["--parse-metadata", "%(upload_date>%Y%m%d)s %(title)s:%(title)s"])
     cmd.extend(["--parse-metadata", "uploader:%(artist)s"])
 
-    # Обход n challenge и signature: web_safari client + удалённые компоненты + PO Token
+    # Обход n challenge и signature: mweb client + удалённые компоненты + PO Token
     cmd.extend(["--extractor-args", "youtube:player_client=mweb"])
     cmd.extend(["--extractor-args", f"youtubepot-bgutilhttp:base_url={DIXTUNE_POT_PROVIDER_URL}"])
     cmd.extend(["--extractor-retries", "3"])
@@ -258,8 +283,6 @@ def download_channel(
 
         # Построчное чтение stdout и stderr в реальном времени.
         # Логируем важные строки для отладки пропусков и скачиваний.
-        import threading
-
         def log_stream(stream, prefix):
             for line in stream:
                 line = line.strip()
@@ -300,6 +323,12 @@ def download_channel(
             # Исправление тега date в MP3 файлах (YYYYMMDD -> YYYYMM)
             for mp3_file in channel_dir.glob("*.mp3"):
                 fix_date_tag(mp3_file)
+
+            # Проверка и повторное скачивание для orphan .webm файлов
+            check_and_retry(
+                channel_dir, url, folder_name, min_date, channel_id,
+                recursion_depth=_depth
+            )
             return False
 
         # Очистка имён файлов от запрещённых символов и лишних подчёркиваний
@@ -309,8 +338,8 @@ def download_channel(
         for mp3_file in channel_dir.glob("*.mp3"):
             fix_date_tag(mp3_file)
 
-        # Проверка и повторное скачивание для orphan .webm файлов
-        check_and_retry(channel_dir, url, folder_name, min_date, channel_id)
+        # check_and_retry не нужен: при успешном завершении
+        # orphan .webm файлов не бывает
 
         # Подсчёт файлов в папке канала (для отчёта)
         file_count = len(list(channel_dir.glob("*.mp3")))

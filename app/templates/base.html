@@ -21,6 +21,8 @@
         .log-entry .log-status { font-weight: bold; margin-right: 0.5rem; }
         .log-entry .log-message { white-space: pre-wrap; }
         .log-viewer { background: #f5f5f5; border: 1px solid #ddd; border-radius: 4px; padding: 1rem; max-height: 600px; overflow-y: auto; font-family: monospace; font-size: 0.85rem; white-space: pre-wrap; }
+        #log-content { background: #f5f5f5; padding: 10px; overflow: auto; max-height: 80vh; font-family: monospace; white-space: pre-wrap; border: 1px solid #ddd; border-radius: 4px; }
+        .logs-controls { margin-bottom: 10px; display: flex; gap: 10px; align-items: center; }
     </style>
 </head>
 <body>
@@ -31,7 +33,7 @@
             <a href="{{ url_for('create_channel_form') }}">Добавить канал</a>
             <a href="{{ url_for('cookies_form') }}">Cookies</a>
             <a href="{{ url_for('logs_page') }}">Логи</a>
-            <a href="http://192.168.10.133:8088/" target="_blank">ByeDPI</a>
+            {# Ссылка на ByeDPI-дашборд настраивается через переменную окружения #}
         </nav>
     </header>
     <main>
