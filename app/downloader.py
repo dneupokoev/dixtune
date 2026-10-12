@@ -1,11 +1,13 @@
 # -*- coding: utf-8 -*-
 # downloader.py
-dv_file_version = '261012.03'
+dv_file_version = '261012.04'
 """Логика скачивания аудио с YouTube через yt-dlp."""
 
 import subprocess
 import logging
 import re
+import os
+import signal
 from pathlib import Path
 from datetime import date
 from typing import Optional
@@ -17,6 +19,27 @@ from app.database import SessionLocal
 from app import crud
 
 logger = logging.getLogger("DixTune")
+
+# Текущий процесс yt-dlp для возможности остановки
+current_process: Optional[subprocess.Popen] = None
+# Флаг остановки из scheduler
+from app.scheduler import stop_requested
+
+
+def stop_download() -> None:
+    """Остановить текущий процесс скачивания yt-dlp.
+
+    Отправляет SIGINT всей группе процессов, что позволяет yt-dlp
+    завершить текущий файл и корректно выйти.
+    """
+    global current_process
+    if current_process and current_process.poll() is None:
+        try:
+            pgid = os.getpgid(current_process.pid)
+            os.killpg(pgid, signal.SIGINT)
+            logger.info("Отправлен сигнал SIGINT группе процессов yt-dlp")
+        except (ProcessLookupError, PermissionError) as e:
+            logger.error(f"Не удалось остановить процесс yt-dlp: {e}")
 
 
 def fix_date_tag(file_path: Path) -> None:
@@ -75,6 +98,62 @@ def clean_filenames(channel_dir: Path) -> None:
                 logger.error(f"Не удалось переименовать {original_name}: {e}")
 
 
+def check_and_retry(
+    channel_dir: Path,
+    url: str,
+    folder_name: str,
+    min_date: Optional[date],
+    channel_id: Optional[int],
+    max_retries: int = 3
+) -> None:
+    """Проверить наличие .webm без .mp3 и повторить скачивание.
+
+    Args:
+        channel_dir: Директория с файлами канала.
+        url: URL канала или плейлиста YouTube.
+        folder_name: Имя папки, в которую складывать файлы.
+        min_date: Минимальная дата публикации видео.
+        channel_id: ID канала для записи в журнал.
+        max_retries: Максимальное количество повторных попыток.
+    """
+    retry_count = 0
+    while retry_count < max_retries:
+        # Найти все .webm файлы, для которых нет соответствующего .mp3
+        orphan_webm_files = []
+        for webm_file in channel_dir.glob("*.webm"):
+            mp3_file = webm_file.with_suffix(".mp3")
+            if not mp3_file.exists():
+                orphan_webm_files.append(webm_file)
+
+        if not orphan_webm_files:
+            break
+
+        logger.warning(
+            f"Найдено {len(orphan_webm_files)} файлов .webm без .mp3. "
+            f"Попытка повторного скачивания {retry_count + 1}/{max_retries}"
+        )
+
+        # Удалить ID из архива для этих файлов, чтобы yt-dlp снова их обработал
+        # yt-dlp использует ID видео в архиве. Имя файла .webm содержит ID в формате:
+        # <video_id>.<ext> или <title>.<video_id>.<ext>
+        # Мы удаляем сам .webm файл, чтобы yt-dlp не считал его уже скачанным
+        for webm_file in orphan_webm_files:
+            try:
+                webm_file.unlink()
+                logger.info(f"Удалён orphan .webm файл: {webm_file.name}")
+            except OSError as e:
+                logger.error(f"Не удалось удалить {webm_file.name}: {e}")
+
+        # Повторный запуск download_channel
+        retry_count += 1
+        download_channel(url, folder_name, min_date, channel_id)
+
+    if retry_count >= max_retries:
+        logger.warning(
+            f"Достигнут максимум повторных попыток ({max_retries}) для канала {url}"
+        )
+
+
 def download_channel(
     url: str,
     folder_name: str,
@@ -92,6 +171,12 @@ def download_channel(
     Returns:
         True, если скачивание прошло успешно, иначе False.
     """
+    global current_process, stop_requested
+
+    if stop_requested:
+        logger.info("Скачивание пропущено: запрошена остановка")
+        return False
+
     channel_dir = MUSIC_DIR / folder_name
     ensure_directory(channel_dir)
     stderr_lines: list[str] = []
@@ -170,8 +255,10 @@ def download_channel(
             cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            text=True
+            text=True,
+            start_new_session=True
         )
+        current_process = process
 
         # Построчное чтение stdout и stderr в реальном времени.
         # Логируем важные строки для отладки пропусков и скачиваний.
@@ -199,6 +286,7 @@ def download_channel(
         stdout_thread.join()
         stderr_thread.join()
         process.wait()
+        current_process = None
 
         if process.returncode != 0:
             logger.error(f"yt-dlp завершился с кодом {process.returncode}")
@@ -210,6 +298,12 @@ def download_channel(
                 crud.create_sync_log(db, channel_id, "error", error_msg)
             finally:
                 db.close()
+            # Очистка имён файлов от запрещённых символов и лишних подчёркиваний
+            clean_filenames(channel_dir)
+
+            # Исправление тега date в MP3 файлах (YYYYMMDD -> YYYYMM)
+            for mp3_file in channel_dir.glob("*.mp3"):
+                fix_date_tag(mp3_file)
             return False
 
         # Очистка имён файлов от запрещённых символов и лишних подчёркиваний
@@ -218,6 +312,9 @@ def download_channel(
         # Исправление тега date в MP3 файлах (YYYYMMDD -> YYYYMM)
         for mp3_file in channel_dir.glob("*.mp3"):
             fix_date_tag(mp3_file)
+
+        # Проверка и повторное скачивание для orphan .webm файлов
+        check_and_retry(channel_dir, url, folder_name, min_date, channel_id)
 
         # Подсчёт файлов в папке канала (для отчёта)
         file_count = len(list(channel_dir.glob("*.mp3")))

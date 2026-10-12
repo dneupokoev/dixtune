@@ -31,6 +31,11 @@
             <span class="btn-icon">🔄</span> Синхронизировать все
         </button>
     </form>
+    <form action="{{ url_for('stop_sync_submit') }}" method="post" style="display:inline;">
+        <button type="submit" class="btn btn-danger">
+            <span class="btn-icon">⏹️</span> Остановить синхронизацию
+        </button>
+    </form>
     <a href="{{ url_for('logs_page') }}" class="btn btn-secondary">
         <span class="btn-icon">📋</span> Логи
     </a>

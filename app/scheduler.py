@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # scheduler.py
-dv_file_version = '261010.01'
+dv_file_version = '261012.04'
 """Планировщик периодических задач APScheduler."""
 
 import logging
@@ -20,6 +20,9 @@ logger = logging.getLogger("DixTune")
 timezone = os.getenv("TZ", "Europe/Moscow")
 scheduler = BackgroundScheduler(timezone=timezone)
 
+# Глобальный флаг остановки синхронизации
+stop_requested = False
+
 
 def schedule_next_sync() -> None:
     """Запланировать следующую синхронизацию со случайным интервалом."""
@@ -37,12 +40,17 @@ def schedule_next_sync() -> None:
 
 def sync_all_channels() -> None:
     """Синхронизировать все включённые каналы."""
+    global stop_requested
+    stop_requested = False
     db = SessionLocal()
     try:
         channels = get_enabled_channels(db)
         logger.info(f"Запуск синхронизации {len(channels)} каналов")
 
         for channel in channels:
+            if stop_requested:
+                logger.info("Синхронизация остановлена по запросу пользователя")
+                break
             logger.info(f"Проверка канала: {channel.name or channel.url}")
             success = download_channel(
                 url=channel.url,
@@ -55,6 +63,7 @@ def sync_all_channels() -> None:
         logger.error(f"Ошибка при синхронизации: {str(e)}")
     finally:
         db.close()
+        stop_requested = False
         schedule_next_sync()
 
 

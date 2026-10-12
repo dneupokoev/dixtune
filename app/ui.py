@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # dxt_ui.py
-dv_file_version = '261012.01'
+dv_file_version = '261012.04'
 """Роутер для веб-интерфейса управления каналами DixTune."""
 
 from collections import deque
@@ -183,6 +183,18 @@ def trigger_sync_submit(request: Request):
     """Запуск синхронизации всех включённых каналов."""
     from app.scheduler import sync_all_channels
     sync_all_channels()
+    return RedirectResponse(url=str(request.url_for("read_channels_ui")), status_code=303)
+
+
+@router.post("/sync/stop")
+def stop_sync_submit(request: Request):
+    """Остановка текущей синхронизации."""
+    from app.scheduler import stop_requested
+    from app.downloader import stop_download
+    import app.scheduler
+
+    app.scheduler.stop_requested = True
+    stop_download()
     return RedirectResponse(url=str(request.url_for("read_channels_ui")), status_code=303)
 
 
