@@ -20,6 +20,7 @@
         .log-entry .timestamp { color: gray; font-size: 0.85rem; margin-right: 0.5rem; }
         .log-entry .log-status { font-weight: bold; margin-right: 0.5rem; }
         .log-entry .log-message { white-space: pre-wrap; }
+        .log-viewer { background: #f5f5f5; border: 1px solid #ddd; border-radius: 4px; padding: 1rem; max-height: 600px; overflow-y: auto; font-family: monospace; font-size: 0.85rem; white-space: pre-wrap; }
     </style>
 </head>
 <body>
@@ -29,6 +30,7 @@
             <a href="{{ url_for('read_channels_ui') }}">Каналы</a>
             <a href="{{ url_for('create_channel_form') }}">Добавить канал</a>
             <a href="{{ url_for('cookies_form') }}">Cookies</a>
+            <a href="{{ url_for('logs_page') }}">Логи</a>
             <a href="http://192.168.10.133:8088/" target="_blank">ByeDPI</a>
         </nav>
     </header>

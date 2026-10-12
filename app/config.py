@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # config.py
-dv_file_version = '261010.01'
+dv_file_version = '261012.01'
 """Настройки приложения DixTune."""
 
 import os
@@ -37,6 +37,9 @@ DIXTUNE_COOKIES = os.getenv("DIXTUNE_COOKIES", str(DATA_DIR / "cookies.txt"))
 
 # URL PO Token Provider (bgutil)
 DIXTUNE_POT_PROVIDER_URL = os.getenv("DIXTUNE_POT_PROVIDER_URL", "http://bgutil-provider:4416")
+
+# Часовой пояс
+TIMEZONE = os.getenv("TZ", "Europe/Moscow")
 
 # Создаём папки при старте
 DATA_DIR.mkdir(parents=True, exist_ok=True)

@@ -1,13 +1,15 @@
 # -*- coding: utf-8 -*-
 # downloader.py
-dv_file_version = '261011.01'
+dv_file_version = '261012.01'
 """Логика скачивания аудио с YouTube через yt-dlp."""
 
 import subprocess
 import logging
+import re
 from pathlib import Path
 from datetime import date
 from typing import Optional
+from mutagen.easyid3 import EasyID3
 
 from app.config import MUSIC_DIR, ARCHIVE_FILE, DIXTUNE_PROXY, DIXTUNE_COOKIES, DIXTUNE_POT_PROVIDER_URL
 from app.utils import ensure_directory
@@ -15,6 +17,51 @@ from app.database import SessionLocal
 from app import crud
 
 logger = logging.getLogger("DixTune")
+
+
+def fix_date_tag(file_path: Path) -> None:
+    """Исправить тег date в MP3 файле, установив формат YYYY-MM.
+
+    Args:
+        file_path: Путь к MP3 файлу.
+    """
+    try:
+        audio = EasyID3(str(file_path))
+        if 'date' in audio:
+            date_value = audio['date'][0]
+            # Преобразуем YYYYMMDD в YYYY-MM
+            if len(date_value) >= 6:
+                year = date_value[:4]
+                month = date_value[4:6]
+                new_date = f"{year}-{month}"
+                if new_date != date_value:
+                    audio['date'] = new_date
+                    audio.save()
+                    logger.info(f"Исправлен тег date в {file_path.name}: {date_value} -> {new_date}")
+    except Exception as e:
+        logger.error(f"Ошибка при исправлении тега date в {file_path.name}: {e}")
+
+
+def clean_filenames(channel_dir: Path) -> None:
+    """Очистить имена файлов от повторяющихся подчёркиваний и лишних символов.
+
+    Args:
+        channel_dir: Директория с файлами канала.
+    """
+    for file_path in channel_dir.glob("*.mp3"):
+        original_name = file_path.name
+        # Схлопываем повторяющиеся подчёркивания
+        cleaned_name = re.sub(r'_+', '_', original_name)
+        # Убираем подчёркивания в начале и конце имени
+        cleaned_name = cleaned_name.strip('_')
+
+        if cleaned_name != original_name:
+            new_path = file_path.with_name(cleaned_name)
+            try:
+                file_path.rename(new_path)
+                logger.info(f"Переименован файл: {original_name} -> {cleaned_name}")
+            except OSError as e:
+                logger.error(f"Не удалось переименовать {original_name}: {e}")
 
 
 def download_channel(
@@ -71,6 +118,9 @@ def download_channel(
     # Фильтр: исключить трансляции (is_live) и Shorts (duration < 60)
     cmd.extend(["--match-filter", "!is_live & duration > 60"])
 
+    # Безопасные имена файлов для Windows
+    cmd.extend(["--windows-filenames"])
+
     # Обход блокировок: прокси (ByeDPI)
     if DIXTUNE_PROXY:
         cmd.extend(["--proxy", DIXTUNE_PROXY])
@@ -85,10 +135,9 @@ def download_channel(
     # Автоматическое заполнение тегов MP3 на основе метаданных YouTube
     cmd.extend(["--embed-metadata"])
     cmd.extend(["--parse-metadata", "uploader:%(album_artist)s"])
-    cmd.extend(["--parse-metadata", "YouTube:%(album)s"])
-    cmd.extend(["--parse-metadata", "playlist_index:%(track_number)s"])
+    cmd.extend(["--parse-metadata", "%(uploader)s:%(album)s"])
+    cmd.extend(["--replace-in-metadata", "album", "^.*$", "YouTube"])
     cmd.extend(["--parse-metadata", "%(upload_date>%Y%m%d)s %(title)s:%(title)s"])
-    cmd.extend(["--parse-metadata", "%(upload_date>%Y-%m)s:%(date)s"])
     cmd.extend(["--parse-metadata", "uploader:%(artist)s"])
 
     # Обход n challenge и signature: web_safari client + удалённые компоненты + PO Token
@@ -151,6 +200,13 @@ def download_channel(
             finally:
                 db.close()
             return False
+
+        # Очистка имён файлов от запрещённых символов и лишних подчёркиваний
+        clean_filenames(channel_dir)
+
+        # Исправление тега date в MP3 файлах (YYYYMMDD -> YYYYMM)
+        for mp3_file in channel_dir.glob("*.mp3"):
+            fix_date_tag(mp3_file)
 
         # Подсчёт файлов в папке канала (для отчёта)
         file_count = len(list(channel_dir.glob("*.mp3")))

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # crud.py
-dv_file_version = '261010.01'
+dv_file_version = '261012.01'
 """Операции CRUD для работы с БД."""
 
 import re
@@ -95,7 +95,7 @@ def update_last_checked(db: Session, channel_id: int) -> None:
     """Обновить время последней проверки канала."""
     db_channel = get_channel(db, channel_id)
     if db_channel:
-        db_channel.last_checked = datetime.utcnow()
+        db_channel.last_checked = datetime.now()
         db.commit()
 
 
@@ -119,7 +119,7 @@ def get_last_sync_logs(db: Session, limit: int = 10) -> List[models.SyncLog]:
 
 def get_sync_stats(db: Session) -> Dict[str, int]:
     """Получить статистику синхронизации за последние 24 часа."""
-    since = datetime.utcnow() - timedelta(hours=24)
+    since = datetime.now() - timedelta(hours=24)
     
     success_count = db.query(models.SyncLog).filter(
         models.SyncLog.created_at >= since,

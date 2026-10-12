@@ -31,6 +31,9 @@
             <span class="btn-icon">🔄</span> Синхронизировать все
         </button>
     </form>
+    <a href="{{ url_for('logs_page') }}" class="btn btn-secondary">
+        <span class="btn-icon">📋</span> Логи
+    </a>
 </div>
 
 {% if channels %}
@@ -40,10 +43,10 @@
             <th>ID</th>
             <th>Имя</th>
             <th>URL</th>
-            <th>Папка</th>
-            <th>Мин. дата</th>
             <th>Включён</th>
             <th>Последняя проверка</th>
+            <th>Файлов</th>
+            <th>Последний файл</th>
             <th>Действия</th>
         </tr>
     </thead>
@@ -53,10 +56,10 @@
             <td>{{ channel.id }}</td>
             <td>{{ channel.name or '-' }}</td>
             <td>{{ channel.url }}</td>
-            <td>{{ channel.folder_name }}</td>
-            <td>{{ channel.min_date.strftime('%Y-%m-%d') if channel.min_date else '-' }}</td>
             <td>{{ 'Да' if channel.enabled else 'Нет' }}</td>
             <td>{{ channel.last_checked.strftime('%Y-%m-%d %H:%M') if channel.last_checked else '-' }}</td>
+            <td>{{ channel_stats[channel.id].file_count }}</td>
+            <td>{{ channel_stats[channel.id].last_file or '-' }}</td>
             <td>
                 <div class="action-buttons">
                     <a href="{{ url_for('edit_channel_form', channel_id=channel.id) }}" class="btn-icon-only btn-secondary" title="Редактировать">✏️</a>

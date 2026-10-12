@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+
+{% block title %}Логи - DixTune{% endblock %}
+
+{% block content %}
+<h2>Логи синхронизации (последние 200 строк)</h2>
+{% if log_lines %}
+<div class="log-viewer">
+{% for line in log_lines %}{{ line }}
+{% endfor %}
+</div>
+{% else %}
+<p>Файл логов не найден или пуст.</p>
+{% endif %}
+{% endblock %}

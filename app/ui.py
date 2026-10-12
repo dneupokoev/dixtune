@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 # dxt_ui.py
-dv_file_version = '261010.02'
+dv_file_version = '261012.01'
 """Роутер для веб-интерфейса управления каналами DixTune."""
 
+from collections import deque
 from datetime import date
 from typing import Optional
 
@@ -13,7 +14,7 @@ from sqlalchemy.orm import Session
 
 from app import crud, schemas
 from app.database import get_db
-from app.config import MUSIC_DIR, DIXTUNE_COOKIES
+from app.config import MUSIC_DIR, DIXTUNE_COOKIES, LOG_PATH
 from pathlib import Path
 
 router = APIRouter(prefix="/ui", tags=["ui"])
@@ -48,6 +49,28 @@ def read_channels_ui(request: Request, db: Session = Depends(get_db)):
     last_logs = crud.get_last_sync_logs(db, limit=5)
     stats = crud.get_sync_stats(db)
 
+    # Статистика по каждому каналу
+    channel_stats = {}
+    for channel in channels:
+        channel_dir = MUSIC_DIR / channel.folder_name
+        if channel_dir.exists():
+            mp3_files = list(channel_dir.glob("*.mp3"))
+            file_count = len(mp3_files)
+            last_file = None
+            if mp3_files:
+                # Сортируем по времени изменения, берём последний
+                last_file_obj = max(mp3_files, key=lambda f: f.stat().st_mtime)
+                last_file = last_file_obj.name
+            channel_stats[channel.id] = {
+                "file_count": file_count,
+                "last_file": last_file
+            }
+        else:
+            channel_stats[channel.id] = {
+                "file_count": 0,
+                "last_file": None
+            }
+
     return templates.TemplateResponse(
         request=request,
         name="channels.html",
@@ -55,7 +78,8 @@ def read_channels_ui(request: Request, db: Session = Depends(get_db)):
             "channels": channels,
             "status": status,
             "last_logs": last_logs,
-            "stats": stats
+            "stats": stats,
+            "channel_stats": channel_stats
         }
     )
 
@@ -201,3 +225,20 @@ def delete_cookies_submit(request: Request):
         cookies_path.unlink()
         
     return RedirectResponse(url=str(request.url_for("cookies_form")), status_code=303)
+
+
+@router.get("/logs")
+def logs_page(request: Request):
+    """Страница с полным логом синхронизации."""
+    log_lines: list[str] = []
+    if LOG_PATH.exists():
+        with open(LOG_PATH, "r", encoding="utf-8") as f:
+            log_lines = list(deque(f, maxlen=200))
+
+    return templates.TemplateResponse(
+        request=request,
+        name="logs.html",
+        context={
+            "log_lines": log_lines
+        }
+    )
