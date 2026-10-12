@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # downloader.py
-dv_file_version = '261012.01'
+dv_file_version = '261012.03'
 """Логика скачивания аудио с YouTube через yt-dlp."""
 
 import subprocess
@@ -52,6 +52,17 @@ def clean_filenames(channel_dir: Path) -> None:
         original_name = file_path.name
         # Схлопываем повторяющиеся подчёркивания
         cleaned_name = re.sub(r'_+', '_', original_name)
+        # Замена полноширинных и «умных» символов на подчёркивание
+        cleaned_name = cleaned_name.replace('？', '_')  # полноширинный вопросительный знак (U+FF1F)
+        cleaned_name = cleaned_name.replace('｜', '_')  # полноширинная вертикальная черта (U+FF5C)
+        cleaned_name = cleaned_name.replace('：', '_')  # полноширинное двоеточие (U+FF1A)
+        cleaned_name = cleaned_name.replace('＊', '_')  # полноширинная звёздочка (U+FF0A)
+        cleaned_name = cleaned_name.replace('”', '_')   # правая двойная кавычка (U+201D)
+        cleaned_name = cleaned_name.replace('“', '_')   # левая двойная кавычка (U+201C)
+        cleaned_name = cleaned_name.replace('’', '_')   # правая одинарная кавычка (U+2019)
+        cleaned_name = cleaned_name.replace('‘', '_')   # левая одинарная кавычка (U+2018)
+        cleaned_name = cleaned_name.replace('／', '_')  # полноширинный слэш (U+FF0F)
+        cleaned_name = cleaned_name.replace('＼', '_')  # полноширинный обратный слэш (U+FF3C)
         # Убираем подчёркивания в начале и конце имени
         cleaned_name = cleaned_name.strip('_')
 
