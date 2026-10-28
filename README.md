@@ -23,6 +23,7 @@ DixTune — автоматический загрузчик аудио с YouTub
 - **Поддержка Deno** для решения n challenge (автоматически устанавливается в Docker).
 - **Поддержка cookies** для авторизации на YouTube (опционально).
 - **PO Token Provider** (bgutil) для обхода защиты YouTube.
+- Постобработка аудио: очистка имён и тегов, теги `date` и `artist` для MP3.
 
 ## Быстрый старт (Prod)
 
@@ -342,7 +343,9 @@ dixtune/
 │   ├── schemas.py          # Pydantic-схемы для API
 │   ├── crud.py             # Операции CRUD для работы с БД
 │   ├── downloader.py       # Логика скачивания через yt-dlp
+│   ├── postprocess.py      # Постобработка аудио: очистка имён и тегов, MP3-теги
 │   ├── scheduler.py        # Планировщик APScheduler
+│   ├── state.py            # Общее состояние приложения (без циклических импортов)
 │   ├── ui.py               # Роутер для веб-интерфейса (/ui)
 │   ├── utils.py            # Вспомогательные функции (sanitize_filename, transliterate, ensure_directory, utcnow)
 │   ├── static/             # CSS, favicon
@@ -443,6 +446,8 @@ curl -u admin:admin123 http://localhost:8020/status
 - При добавлении нового поля в модель `Channel` — обновить `models.py`, `schemas.py`, `crud.py`, `ui.py`, шаблоны.
 - При изменении API — обновить README (раздел API).
 - Логика скачивания — в `downloader.py` (флаги yt-dlp).
+- Постобработка аудио — в `postprocess.py` (очистка имён и тегов, MP3-теги).
+- Общее состояние приложения — в `state.py` (вынесено для устранения циклических импортов).
 - Расписание — в `scheduler.py`.
 - UI — в `ui.py` и шаблонах.
 - Перед коммитом: проверить, что приложение запускается локально.
