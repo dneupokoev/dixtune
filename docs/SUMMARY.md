@@ -24,19 +24,19 @@ DixTune — автоматический загрузчик аудио с YouTub
 
 Модульная структура приложения (`app/`). Ссылки ведут на документацию соответствующих модулей.
 
-- [__init__.py](modules/app/__init__.md) — инициализация пакета приложения.
-- [config.py](modules/app/config.md) — конфигурация приложения.
-- [crud.py](modules/app/crud.md) — операции с данными.
-- [database.py](modules/app/database.md) — работа с базой данных.
-- [downloader.py](modules/app/downloader.md) — загрузка аудио с YouTube.
-- [main.py](modules/app/main.md) — точка входа приложения и REST API.
-- [models.py](modules/app/models.md) — модели данных.
-- [postprocess.py](modules/app/postprocess.md) — постобработка аудио.
-- [scheduler.py](modules/app/scheduler.md) — планировщик автоматической синхронизации.
-- [schemas.py](modules/app/schemas.md) — схемы данных.
-- [state.py](modules/app/state.md) — состояние приложения.
-- [ui.py](modules/app/ui.md) — веб-интерфейс.
-- [utils.py](modules/app/utils.md) — вспомогательные функции.
+- [__init__.py](modules/app/__init__.md) — инициализация пакета `DixTune`, docstring пакета и константа версии `dv_file_version`.
+- [config.py](modules/app/config.md) — централизованная конфигурация: пути к данным, музыке, БД и логам, интервалы синхронизации, Basic Auth, прокси, cookies, PO Token Provider и часовой пояс; часть значений переопределяется через переменные окружения.
+- [crud.py](modules/app/crud.md) — CRUD-операции для каналов и журнала синхронизации, обновление `last_checked`, получение включённых каналов и статистики синхронизации за последние 24 часа.
+- [database.py](modules/app/database.md) — подключение к SQLite через SQLAlchemy: движок `engine`, фабрика сессий `SessionLocal`, базовый класс `Base` и зависимость `get_db()`.
+- [downloader.py](modules/app/downloader.md) — скачивание аудио через `yt-dlp`: MP3 128K, SponsorBlock, фильтрация по дате и типам контента, cookies/прокси/PO Token, разбор stdout/stderr, постобработка файлов, повтор при «осиротевших» `.webm`, запись результата в БД и остановка через `SIGINT`.
+- [main.py](modules/app/main.md) — точка входа FastAPI-приложения: логирование с ротацией, создание таблиц БД, `lifespan` с планировщиком, Basic Auth middleware, статика, UI-роутер, REST-эндпоинты, health-check и статус.
+- [models.py](modules/app/models.md) — ORM-модели SQLAlchemy `Channel` и `SyncLog` для таблиц `channels` и `sync_logs`.
+- [postprocess.py](modules/app/postprocess.md) — CLI-постобработка одного MP3-файла: исправление тега `date` и очистка имени файла; используется как точка входа для `yt-dlp --exec after_move`.
+- [scheduler.py](modules/app/scheduler.md) — фоновый планировщик на APScheduler: случайный интервал синхронизации, запуск `sync_all_channels`, управление стартом и остановкой.
+- [schemas.py](modules/app/schemas.md) — Pydantic-схемы для API: создание, обновление и ответ по каналам, статус приложения и валидация YouTube URL.
+- [state.py](modules/app/state.md) — глобальное состояние приложения: `current_process`, `stop_requested`, `is_syncing` и версия файла; используется для предотвращения циклических импортов.
+- [ui.py](modules/app/ui.md) — веб-интерфейс `/ui` на Jinja2: список каналов, статистика, логи, создание/редактирование/удаление каналов, запуск и остановка синхронизации, управление cookies и JSON-статус.
+- [utils.py](modules/app/utils.md) — вспомогательные функции: транслитерация кириллицы, `sanitize_filename`, `ensure_directory` и получение текущего UTC-времени как naive `datetime`.
 
 ## Документация
 
